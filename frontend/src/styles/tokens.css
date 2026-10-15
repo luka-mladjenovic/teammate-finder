@@ -1,0 +1,47 @@
+/* Theme tokens. Visual system inspired by the airbnb DESIGN.md (white canvas, one accent,
+   soft radii, single hover shadow), with our own indigo accent and an open font. */
+:root {
+  --color-primary: #4f46e5;
+  --color-primary-active: #4338ca;
+  --color-primary-soft: #eef2ff;
+  --color-primary-disabled: #c7d2fe;
+  --color-on-primary: #ffffff;
+
+  --color-ink: #222222;
+  --color-body: #3f3f3f;
+  --color-muted: #6a6a6a;
+  --color-muted-soft: #929292;
+  --color-hairline: #dddddd;
+  --color-hairline-soft: #ebebeb;
+  --color-border-strong: #c1c1c1;
+  --color-canvas: #ffffff;
+  --color-surface-soft: #f7f7f7;
+  --color-surface-strong: #f2f2f2;
+
+  --color-good: #0f7b5f;
+  --color-good-soft: #e7f6f0;
+  --color-warn: #b45309;
+  --color-warn-soft: #fff4e5;
+
+  --font-sans: 'Plus Jakarta Sans Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 32px;
+  --radius-full: 9999px;
+
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+
+  --shadow-float: rgba(0, 0, 0, 0.02) 0 0 0 1px, rgba(0, 0, 0, 0.04) 0 2px 6px 0, rgba(0, 0, 0, 0.1) 0 4px 8px 0;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --dur-fast: 150ms;
+  --dur-med: 240ms;
+
+  --page-max: 1200px;
+}
