@@ -91,9 +91,10 @@ export function FindTeammates() {
           <motion.div layout className="cards">
             <AnimatePresence mode="popLayout">
               {matchCtx &&
-                results.map((s) => (
+                results.map((s, i) => (
                   <ProfileCard
                     key={s.id}
+                    index={i}
                     student={s}
                     ctx={matchCtx}
                     comparing={compareIds.includes(s.id)}

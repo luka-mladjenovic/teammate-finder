@@ -15,9 +15,11 @@ interface Props {
   teamFull: boolean
   onToggleCompare: () => void
   onInvite: () => void
+  /** Position in the list, used to stagger the entrance. */
+  index?: number
 }
 
-export function ProfileCard({ student, ctx, comparing, compareFull, teamFull, onToggleCompare, onInvite }: Props) {
+export function ProfileCard({ student, ctx, comparing, compareFull, teamFull, onToggleCompare, onInvite, index = 0 }: Props) {
   const shared = sharedWith(student, commonSlots(ctx.members)).length
   const reasons = matchReasons(student, ctx)
   const [mainRole, ...otherRoles] = student.roles
@@ -29,8 +31,8 @@ export function ProfileCard({ student, ctx, comparing, compareFull, teamFull, on
       style={tilt.style}
       {...tilt.handlers}
       layout
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ opacity: 0, y: 16, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 320, damping: 30, delay: Math.min(index, 8) * 0.045 } }}
       exit={{ opacity: 0, scale: 0.96 }}
       transition={{ type: 'spring', stiffness: 380, damping: 32 }}
       whileHover={{ y: -3 }}

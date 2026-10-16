@@ -14,6 +14,8 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 
 h1,
 h2,

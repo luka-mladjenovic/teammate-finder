@@ -123,3 +123,14 @@
   .seg + .seg { border-left: 0; }
   .team-grid { grid-template-columns: 1fr; }
 }
+
+/* ---------- Theme switcher (demo only) ---------- */
+.theme-switcher { position: fixed; left: 16px; bottom: 16px; z-index: 40; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.theme-toggle, .theme-option { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--color-ink); background: var(--color-canvas); border: 1px solid var(--color-hairline); border-radius: var(--radius-full); padding: 6px 12px 6px 6px; box-shadow: var(--shadow-float); transition: transform var(--dur-fast) var(--ease-out), border-color var(--dur-fast); }
+.theme-toggle:hover, .theme-option:hover { transform: translateY(-1px); border-color: var(--color-border-strong); }
+.theme-toggle:active, .theme-option:active { transform: scale(0.97); }
+.theme-menu { display: flex; flex-direction: column; gap: 6px; }
+.theme-switcher { transition: bottom var(--dur-med) var(--ease-out); }
+body:has(.tray) .theme-switcher { bottom: 100px; }
+.theme-option.is-active { border-color: var(--color-primary); box-shadow: 0 0 0 1px var(--color-primary), var(--shadow-float); }
+.theme-swatch { width: 20px; height: 20px; border-radius: 50%; border: 1px solid rgba(0, 0, 0, 0.12); }

@@ -1,6 +1,7 @@
 import { AnimatePresence, MotionConfig, motion } from 'motion/react'
 import { useEffect, useState } from 'react'
-import { BrowserRouter, Route, Routes, useLocation } from 'react-router-dom'
+import { BrowserRouter, HashRouter, Route, Routes, useLocation } from 'react-router-dom'
+import { ThemeSwitcher } from './components/ThemeSwitcher'
 import { TopNav } from './components/TopNav'
 import { LoadingScreen } from './fun/LoadingScreen'
 import { toggleRetroTheme, useKonami } from './fun/useKonami'
@@ -15,7 +16,8 @@ import { AppDataProvider, useAppData } from './state/AppData'
 
 function Shell() {
   const { loading } = useAppData()
-  const { pathname } = useLocation()
+  const location = useLocation()
+  const { pathname } = location
   const [toast, setToast] = useState<string | null>(null)
 
   useKonami(() => setToast(toggleRetroTheme() ? 'Retro mode on. Welcome back to 1998.' : 'Retro mode off.'))
@@ -27,7 +29,7 @@ function Shell() {
   }, [toast])
 
   useEffect(() => {
-    window.scrollTo(0, 0)
+    window.scrollTo({ top: 0, behavior: 'instant' })
   }, [pathname])
 
   return (
@@ -36,7 +38,14 @@ function Shell() {
       <main>
         {/* The landing page never waits for data. */}
         <LoadingScreen done={!loading || pathname === '/'}>
-          <Routes>
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={pathname}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0, transition: { duration: 0.28, ease: [0.2, 0.8, 0.2, 1] } }}
+              exit={{ opacity: 0, y: -6, transition: { duration: 0.12, ease: 'easeIn' } }}
+            >
+          <Routes location={location}>
             <Route path="/" element={<Landing />} />
             <Route path="/find" element={<FindTeammates />} />
             <Route path="/people/:id" element={<ProfileDetail />} />
@@ -46,8 +55,11 @@ function Shell() {
             <Route path="/study/*" element={<Study />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
+            </motion.div>
+          </AnimatePresence>
         </LoadingScreen>
       </main>
+      <ThemeSwitcher />
       <div className="fun-toast-region" role="status" aria-live="polite">
         <AnimatePresence>
           {toast && (
@@ -67,13 +79,16 @@ function Shell() {
   )
 }
 
+// The single-file demo build opens from file://, which only works with hash routes.
+const Router = import.meta.env.MODE === 'singlefile' ? HashRouter : BrowserRouter
+
 export default function App() {
   return (
     <MotionConfig reducedMotion="user">
       <AppDataProvider>
-        <BrowserRouter>
+        <Router>
           <Shell />
-        </BrowserRouter>
+        </Router>
       </AppDataProvider>
     </MotionConfig>
   )
