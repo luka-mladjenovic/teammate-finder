@@ -1,7 +1,6 @@
 import { AnimatePresence, MotionConfig, motion } from 'motion/react'
 import { useEffect, useState } from 'react'
 import { BrowserRouter, HashRouter, Route, Routes, useLocation } from 'react-router-dom'
-import { ThemeSwitcher } from './components/ThemeSwitcher'
 import { TopNav } from './components/TopNav'
 import { LoadingScreen } from './fun/LoadingScreen'
 import { toggleRetroTheme, useKonami } from './fun/useKonami'
@@ -12,6 +11,7 @@ import { OpenTeams } from './pages/OpenTeams'
 import { NotFound, Study } from './pages/Placeholders'
 import { ProfileDetail } from './pages/ProfileDetail'
 import { ProfileSetup } from './pages/ProfileSetup'
+import { StyleCompare } from './pages/StyleCompare'
 import { AppDataProvider, useAppData } from './state/AppData'
 
 function Shell() {
@@ -52,6 +52,7 @@ function Shell() {
             <Route path="/team" element={<MyTeam />} />
             <Route path="/teams" element={<OpenTeams />} />
             <Route path="/profile/setup" element={<ProfileSetup />} />
+            <Route path="/styles" element={<StyleCompare />} />
             <Route path="/study/*" element={<Study />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
@@ -59,7 +60,6 @@ function Shell() {
           </AnimatePresence>
         </LoadingScreen>
       </main>
-      <ThemeSwitcher />
       <div className="fun-toast-region" role="status" aria-live="polite">
         <AnimatePresence>
           {toast && (

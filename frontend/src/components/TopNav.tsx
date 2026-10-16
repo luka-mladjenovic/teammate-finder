@@ -1,5 +1,6 @@
 import { NavLink, Link } from 'react-router-dom'
 import { useAppData } from '../state/AppData'
+import { StylePicker } from './StylePicker'
 
 export function TopNav() {
   const { team } = useAppData()
@@ -18,17 +19,20 @@ export function TopNav() {
           <NavLink to="/teams">Open teams</NavLink>
           <NavLink to="/profile/setup">My profile</NavLink>
         </nav>
-        {team && (
-          <Link to="/team" className="team-pill" aria-label={`${team.project}: ${team.memberIds.length} of ${team.size} members`}>
-            <span className="team-dots" aria-hidden="true">
-              {Array.from({ length: team.size }, (_, i) => (
-                <i key={i} className={i < team.memberIds.length ? 'on' : ''} />
-              ))}
-            </span>
-            <span className="small">{team.project}</span>
-            <strong className="small">{team.memberIds.length}/{team.size}</strong>
-          </Link>
-        )}
+        <div className="topnav-actions">
+          {team && (
+            <Link to="/team" className="team-pill" aria-label={`${team.project}: ${team.memberIds.length} of ${team.size} members`}>
+              <span className="team-dots" aria-hidden="true">
+                {Array.from({ length: team.size }, (_, i) => (
+                  <i key={i} className={i < team.memberIds.length ? 'on' : ''} />
+                ))}
+              </span>
+              <span className="small">{team.project}</span>
+              <strong className="small">{team.memberIds.length}/{team.size}</strong>
+            </Link>
+          )}
+          <StylePicker />
+        </div>
       </div>
     </header>
   )

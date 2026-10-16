@@ -893,20 +893,6 @@ html.theme-glass:not(.theme-retro) .fun-toast {
   backdrop-filter: blur(12px);
 }
 
-/* ---------- Style switcher (bottom-left) ---------- */
-html.theme-glass:not(.theme-retro) .theme-toggle,
-html.theme-glass:not(.theme-retro) .theme-option {
-  background: rgba(255, 255, 255, 0.8);
-  border-color: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 0 0 1px rgba(17, 17, 40, 0.07), 0 10px 24px -12px rgba(30, 27, 75, 0.32);
-  -webkit-backdrop-filter: blur(16px) saturate(170%);
-  backdrop-filter: blur(16px) saturate(170%);
-  transition: var(--t-ui);
-}
-html.theme-glass:not(.theme-retro) .theme-toggle:hover,
-html.theme-glass:not(.theme-retro) .theme-option:hover { background: #ffffff; border-color: #ffffff; box-shadow: 0 0 0 1px rgba(17, 17, 40, 0.14), 0 12px 28px -12px rgba(30, 27, 75, 0.4); }
-html.theme-glass:not(.theme-retro) .theme-option.is-active { border-color: var(--color-primary); box-shadow: 0 0 0 1px var(--color-primary), 0 10px 24px -12px rgba(79, 70, 229, 0.5); }
-
 /* =====================================================================================
    Fallbacks + responsive
    ===================================================================================== */

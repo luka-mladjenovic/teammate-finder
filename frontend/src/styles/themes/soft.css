@@ -932,6 +932,7 @@ html.theme-soft .dd-gate-art span { border-radius: 8px; border-width: 1.5px; }
   html.theme-soft .seg + .seg { border-left: 0; }
 }
 @media (max-width: 600px) {
+  html.theme-soft .brand { font-size: 18px; }
   html.theme-soft .lp-title { font-size: 40px; }
   html.theme-soft .lp-sub { font-size: 16px; }
   html.theme-soft .lp-band { width: calc(100% - 32px); padding: 28px 22px; }

@@ -12,16 +12,33 @@ export type ThemeId = (typeof THEMES)[number]['id']
 const KEY = 'tf.theme'
 const isTheme = (v: unknown): v is ThemeId => THEMES.some((t) => t.id === v)
 
+/** True when this app is shown inside the /styles comparison page. */
+export const IS_EMBED = (() => {
+  try {
+    return new URLSearchParams(window.location.search).has('embed')
+  } catch {
+    return false
+  }
+})()
+
 export function applyTheme(id: ThemeId) {
   const root = document.documentElement
   for (const t of THEMES) root.classList.remove(`theme-${t.id}`)
   if (id !== 'default') root.classList.add(`theme-${id}`)
   root.dataset.theme = id
+  if (IS_EMBED) return // previews must not overwrite the viewer's saved choice
   try {
     localStorage.setItem(KEY, id)
   } catch {
     /* storage unavailable: theme still applies for this visit */
   }
+}
+
+/** URL for the app with a given theme and page, for both the dev server and the single-file demo. */
+export function themedUrl(id: ThemeId, page: string, extra = '') {
+  const query = `?theme=${id}${extra}`
+  if (import.meta.env.MODE === 'singlefile') return `${window.location.pathname}${query}#${page}`
+  return `${page}${query}`
 }
 
 /** URL ?theme=aurora wins, then the last saved choice, then default. */
