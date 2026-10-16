@@ -133,4 +133,4 @@
 .theme-switcher { transition: bottom var(--dur-med) var(--ease-out); }
 body:has(.tray) .theme-switcher { bottom: 100px; }
 .theme-option.is-active { border-color: var(--color-primary); box-shadow: 0 0 0 1px var(--color-primary), var(--shadow-float); }
-.theme-swatch { width: 20px; height: 20px; border-radius: 50%; border: 1px solid rgba(0, 0, 0, 0.12); }
+.theme-swatch { width: 20px; height: 20px; border-radius: 50%; border: 1px solid rgba(0, 0, 0, 0.12); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35); }

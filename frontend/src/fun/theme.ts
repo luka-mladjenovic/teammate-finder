@@ -2,9 +2,9 @@
 
 export const THEMES = [
   { id: 'default', label: 'Classic', swatch: '#4f46e5' },
-  { id: 'aurora', label: 'Aurora', swatch: '#0d0d14' },
-  { id: 'glass', label: 'Glass', swatch: '#e9e6ff' },
-  { id: 'soft', label: 'Soft', swatch: '#ffd9c7' },
+  { id: 'aurora', label: 'Aurora', swatch: 'linear-gradient(135deg, #6d6af6 0%, #22d3ee 55%, #0d0d14 100%)' },
+  { id: 'glass', label: 'Glass', swatch: 'linear-gradient(135deg, #e9e6ff, #ffe4d6)' },
+  { id: 'soft', label: 'Soft', swatch: 'linear-gradient(135deg, #ffd9c7, #d9f3e1)' },
 ] as const
 
 export type ThemeId = (typeof THEMES)[number]['id']
