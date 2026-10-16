@@ -1,5 +1,6 @@
 import { motion } from 'motion/react'
 import { Link } from 'react-router-dom'
+import { useTilt } from '../fun/useTilt'
 import { CHANNEL_LABEL, GOAL_LABEL, PACE_LABEL, RESPONSE_LABEL, ROLE_LABEL } from '../labels'
 import { commonSlots, matchReasons, sharedWith, type MatchContext } from '../lib/matching'
 import type { Student } from '../types'
@@ -20,16 +21,20 @@ export function ProfileCard({ student, ctx, comparing, compareFull, teamFull, on
   const shared = sharedWith(student, commonSlots(ctx.members)).length
   const reasons = matchReasons(student, ctx)
   const [mainRole, ...otherRoles] = student.roles
+  const tilt = useTilt<HTMLElement>()
 
   return (
     <motion.article
+      ref={tilt.ref}
+      style={tilt.style}
+      {...tilt.handlers}
       layout
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.96 }}
       transition={{ type: 'spring', stiffness: 380, damping: 32 }}
       whileHover={{ y: -3 }}
-      className={`pcard ${comparing ? 'pcard-selected' : ''}`}
+      className={`pcard ${tilt.className} ${comparing ? 'pcard-selected' : ''}`}
     >
       <header className="pcard-head">
         <Avatar student={student} />

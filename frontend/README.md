@@ -25,7 +25,7 @@ src/
   state/AppData.tsx   app-wide data: viewer, team, compare list, invite
   components/         ProfileCard, AvailabilityGrid, FilterBar, CompareTray, ...
   pages/              Find teammates, Profile, My team (+ placeholders)
-  fun/                small delights (confetti when the team is full)
+  fun/                loading screen, Deadline Dash, Konami/retro theme, tilt, confetti
   styles/             tokens.css (theme), global.css, components.css
 ```
 
@@ -33,11 +33,15 @@ src/
 
 | route | status |
 |---|---|
-| `/find` | done: filters, live re-sorting, match checks, compare up to 3, invite |
-| `/people/:id` | done: availability overlap, working style, reviews, past work |
-| `/team` | done: members, role coverage, shared availability |
-| `/` | simple landing |
-| `/profile/setup`, `/teams`, `/study` | placeholders |
+| `/` | landing: animated hero (cards snap into a team), how it works, interview findings |
+| `/find` | filters, live re-sorting, match checks, compare up to 3, invite, 3D tilt on cards |
+| `/people/:id` | availability overlap, working style, reviews, past work |
+| `/team` | members, role coverage, shared availability |
+| `/teams` | open teams that are recruiting; filter by roles you can fill; request to join |
+| `/profile/setup` | two-step profile form (drag-to-paint availability, goal & pace, roles & skills, past work), draft save, preview |
+| `/study` | placeholder (study mode comes next) |
+
+Delights: loading animation (shows only if data takes >150 ms; add `?demo=loading` to any URL to see it for 6 s, with the Deadline Dash game button after 1.5 s), Deadline Dash mini-game (click the ghost on any 404 page), confetti when the team is full, and a retro theme via the Konami code (↑↑↓↓←→←→BA).
 
 ## Design
 

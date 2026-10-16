@@ -20,6 +20,8 @@ interface AppData {
   invite: (id: string) => void
   removeMember: (id: string) => void
   byId: (id: string) => Student | undefined
+  /** Merges profile edits into the viewer (prototype: local state only). */
+  updateViewer: (patch: Partial<Student>) => void
 }
 
 const Ctx = createContext<AppData | null>(null)
@@ -76,6 +78,10 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     setTeam((t) => (t ? { ...t, memberIds: t.memberIds.filter((m) => m !== id || m === 'me') } : t))
   }, [])
 
+  const updateViewer = useCallback((patch: Partial<Student>) => {
+    setViewer((v) => (v ? { ...v, ...patch } : v))
+  }, [])
+
   const value: AppData = {
     loading,
     error,
@@ -90,6 +96,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     invite,
     removeMember,
     byId,
+    updateViewer,
   }
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }
