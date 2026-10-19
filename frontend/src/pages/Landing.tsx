@@ -5,6 +5,8 @@ import { Link } from 'react-router-dom'
 import { Avatar } from '../components/Avatar'
 import { AvailabilityGrid } from '../components/AvailabilityGrid'
 import { MatchReasons } from '../components/MatchReasons'
+import { RESPONSE_LABEL } from '../labels'
+import { formatHours } from '../lib/availability'
 import type { MatchReason, Role, SlotKey } from '../types'
 
 /* All people on this page are fictional and deliberately not the people in the study scenario,
@@ -29,6 +31,12 @@ const SLOT_W = 100
 const SLOT_ROLES: Role[] = ['lead', 'frontend', 'backend', 'design']
 const slotX = (i: number) => 12 + i * 112
 
+/**
+ * "Replies within 1 hour", worded like the reply-time labels elsewhere in the app. The hero cards are too
+ * narrow for it, so they say "Fast replies" (next to "Slow replies").
+ */
+const REPLIES_FAST = `Replies ${RESPONSE_LABEL.within_1h.toLowerCase()}`
+
 interface HeroPerson {
   id: string
   name: string
@@ -42,9 +50,9 @@ interface HeroPerson {
 }
 
 const HERO_PEOPLE: HeroPerson[] = [
-  { id: 'hero-maya', name: 'Maya Chen', role: 'lead', note: 'Replies in 1h', slot: 0, from: { x: -190, y: 30 }, at: { x: 14, y: 56, r: -5 } },
-  { id: 'hero-zoe', name: 'Zoe Turner', role: 'docs', note: 'Replies next day', slot: -1, from: { x: 170, y: -130 }, at: { x: 154, y: 50, r: 2 } },
-  { id: 'hero-leo', name: 'Leo Park', role: 'frontend', note: '5 shared slots', slot: 1, from: { x: 520, y: 40 }, at: { x: 290, y: 62, r: 4 } },
+  { id: 'hero-maya', name: 'Maya Chen', role: 'lead', note: 'Fast replies', slot: 0, from: { x: -190, y: 30 }, at: { x: 14, y: 56, r: -5 } },
+  { id: 'hero-zoe', name: 'Zoe Turner', role: 'docs', note: 'Slow replies', slot: -1, from: { x: 170, y: -130 }, at: { x: 154, y: 50, r: 2 } },
+  { id: 'hero-leo', name: 'Leo Park', role: 'frontend', note: formatHours(9), slot: 1, from: { x: 520, y: 40 }, at: { x: 290, y: 62, r: 4 } },
   { id: 'hero-ravi', name: 'Ravi Mehta', role: 'design', note: '3 good reviews', slot: 3, from: { x: -190, y: 210 }, at: { x: 24, y: 150, r: 3 } },
   { id: 'hero-nora', name: 'Nora Silva', role: 'backend', note: 'Starts early', slot: 2, from: { x: 170, y: 420 }, at: { x: 162, y: 144, r: -3 } },
   { id: 'hero-felix', name: 'Felix Wright', role: 'testing', note: 'No shared time', slot: -1, from: { x: 540, y: 220 }, at: { x: 294, y: 154, r: -4 } },
@@ -198,7 +206,7 @@ function HeroTeam({ paused, onTogglePause }: { paused: boolean; onTogglePause: (
                 style={{ zIndex: isPlaced ? 3 : 2 }}
               >
                 <div className={`lp-hcard${isPlaced ? '' : ' is-floating'}`} style={{ animationDelay: `${-i * 0.6}s` }}>
-                  <Avatar student={p} size={30} />
+                  <Avatar student={p} size={28} />
                   <div className="lp-hcard-text">
                     <strong>{p.name}</strong>
                     <span>{SHORT_ROLE[p.role]}</span>
@@ -241,10 +249,10 @@ function Word({ children, i }: { children: string; i: number }) {
 
 /* ---------- How it works ---------- */
 
-const STEP_SLOTS: SlotKey[] = ['mon-eve', 'tue-eve', 'wed-pm', 'thu-pm', 'thu-eve', 'fri-am']
+const STEP_SLOTS: SlotKey[] = ['mon-late_evening', 'tue-late_evening', 'wed-afternoon', 'thu-afternoon', 'thu-late_evening', 'thu-night', 'sat-morning']
 const STEP_REASONS: MatchReason[] = [
-  { kind: 'good', text: '4 shared evening slots' },
-  { kind: 'good', text: 'Replies within an hour' },
+  { kind: 'good', text: `${formatHours(9)} together` },
+  { kind: 'good', text: REPLIES_FAST },
   { kind: 'warn', text: 'Prefers a deadline sprint' },
 ]
 const TEAM_PREVIEW = [
@@ -272,7 +280,7 @@ function StepVisual({ index }: { index: number }) {
         <div className="stack" style={{ gap: 10 }}>
           <AvailabilityGrid theirs={STEP_SLOTS} size="sm" showLegend={false} />
           <div className="chips">
-            <span className="chip">Replies in 1h</span>
+            <span className="chip">{REPLIES_FAST}</span>
             <span className="chip">Steady pace</span>
           </div>
         </div>
@@ -305,7 +313,10 @@ function StepVisual({ index }: { index: number }) {
 const STEPS = [
   { title: 'Build a profile around how you work', text: 'Add your free time, reply speed, goal and pace, not just a list of skills.' },
   { title: 'Compare people on what matters', text: 'See shared time, roles and reviews side by side, with a clear reason for every match.' },
-  { title: 'Form a team you can rely on', text: 'Invite the right people, cover every role, and leave reviews when the project ends.' },
+  {
+    title: 'Form a team you can rely on',
+    text: "Invite the right people, email them once you've both said yes, and leave reviews when the project ends.",
+  },
 ]
 
 /* ---------- Research findings ---------- */
@@ -357,7 +368,7 @@ export function Landing() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
           >
-            For course project teams
+            For UF course project teams
           </motion.span>
           <h1 className="lp-title">
             {HEAD_A.map((w, i) => (
@@ -403,6 +414,22 @@ export function Landing() {
               I need a team
             </Link>
           </motion.div>
+          <motion.p
+            className="lp-uf small"
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.7, duration: 0.5 }}
+          >
+            <span className="lp-uf-badge" aria-hidden="true">
+              <svg width="14" height="14" viewBox="0 0 16 16" focusable="false">
+                <path d="M8 1.5 13.5 3.6v4c0 3.2-2.3 5.7-5.5 6.9C4.8 13.3 2.5 10.8 2.5 7.6v-4Z" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+                <path d="m5.6 8 1.7 1.7 3.2-3.4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </span>
+            <span>
+              UF students only. New here? <Link to="/signup" className="lp-uf-link">Sign up with your UF email</Link>
+            </span>
+          </motion.p>
           <motion.div
             className="lp-trust small"
             initial={{ opacity: 0 }}

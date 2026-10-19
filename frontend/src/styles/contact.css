@@ -1,0 +1,116 @@
+/* Contact by UF email (D2): ContactCard on profiles and the Contact card on My team, plus the profile and
+   My team page layout they sit in. Loaded from main.tsx after components.css. Tokens only; per-look tweaks
+   sit at the end, scoped like the theme files. Owner: Dev-2. */
+
+/* ---------- Contact card ---------- */
+.contact-card { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.contact-card h3:focus { outline: none; }
+.contact-card h3:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; border-radius: 4px; }
+.contact-card p { margin: 0; overflow-wrap: anywhere; }
+
+/* Locked (and empty) states: a quiet panel that says when the email unlocks. */
+.contact-locked { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border-radius: var(--radius-sm); background: var(--color-surface-soft); color: var(--color-body); }
+.contact-lock { flex: none; margin-top: 2px; color: var(--color-muted); }
+.contact-locked-body { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; min-width: 0; }
+
+.contact-loading { display: flex; flex-direction: column; gap: 8px; }
+.contact-error { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+
+/* The address: selectable in one click, and long addresses wrap instead of scrolling. */
+.contact-field { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border: 1px solid var(--color-hairline); border-radius: var(--radius-sm); background: var(--color-surface-soft); }
+.contact-field-label { font-weight: 600; }
+.contact-addr { font-weight: 600; color: var(--color-ink); user-select: all; -webkit-user-select: all; overflow-wrap: anywhere; }
+.contact-field .contact-addr { font-size: 15px; }
+.contact-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+
+/* My team rows: avatar, name over address, then Copy and Email (wrapping under the name on phones). */
+.contact-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.contact-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; padding: 12px 0; }
+.contact-row + .contact-row { border-top: 1px solid var(--color-hairline-soft); }
+.contact-row:first-child { padding-top: 4px; }
+.contact-who { flex: 1 1 180px; min-width: 0; display: flex; flex-direction: column; }
+.contact-name { font-weight: 600; color: var(--color-ink); }
+.contact-who .contact-addr { font-weight: 500; color: var(--color-body); }
+.contact-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding-top: 12px; border-top: 1px solid var(--color-hairline-soft); }
+/* The joined list, shown (and selected) only when the clipboard is blocked. */
+.contact-foot .contact-all:not(.sr-only) { flex-basis: 100%; }
+
+/* ---------- Signed-out page state (real API only; ContactCard.tsx SignedOutPage) ---------- */
+/* Builds on .empty (components.css): a lock in a soft disc, the title, one line of why, Sign in + Sign up. */
+.signed-out-mark { width: 56px; height: 56px; margin-bottom: 4px; border-radius: var(--radius-full); display: grid; place-items: center; background: var(--color-primary-soft); color: var(--color-primary); }
+.signed-out-mark .contact-lock { width: 26px; height: 26px; margin: 0; color: currentColor; }
+.signed-out h1 { overflow-wrap: anywhere; }
+.signed-out h1:focus { outline: none; }
+.signed-out > p { max-width: 46ch; margin: 0; text-wrap: pretty; }
+.signed-out > .row { flex-wrap: wrap; justify-content: center; margin-top: 8px; }
+
+/* ---------- Profile page ---------- */
+.profile-page .profile-grid { grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr)); }
+.profile-page .profile-grid > * { min-width: 0; }
+/* Project names are typed by students (up to 60 characters, maybe one long word): they wrap, never widen the page. */
+.profile-head > .stack { min-width: 0; }
+.profile-head h1, .profile-head .tiny, .profile-head p { overflow-wrap: anywhere; }
+.profile-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; min-width: 0; max-width: min(100%, 460px); }
+.profile-actions .row { flex-wrap: wrap; justify-content: flex-end; }
+.profile-actions .btn { height: auto; min-height: 40px; padding-top: 8px; padding-bottom: 8px; white-space: normal; text-align: center; overflow-wrap: anywhere; }
+.profile-actions > span { text-align: right; overflow-wrap: anywhere; }
+.profile-time { margin: 10px 0 0; }
+.profile-time-note { margin: 0; }
+
+/* ---------- My team page ---------- */
+.team-page .team-grid > * { min-width: 0; }
+.team-page .find-hero > div:first-child { min-width: 0; }
+.team-page .find-hero h1, .team-page .find-hero p { overflow-wrap: anywhere; }
+.team-page .find-hero .row { flex-wrap: wrap; }
+/* The remove × gets a real target (32 px; Glass and Soft size it at 28 px), and names never run under it. */
+.team-page .slot-filled:has(.slot-remove) { padding-right: 40px; }
+.team-page .slot-remove { top: 4px; right: 4px; width: 32px; height: 32px; padding: 0; display: grid; place-items: center; border-radius: var(--radius-full); line-height: 1; }
+.team-page .slot-remove:hover { background: var(--color-surface-soft); color: var(--color-ink); }
+
+/* "Remove Priya from Database Project?" (reuses the preview dialog's sheet from setup.css, so every look styles it). */
+.team-confirm h2 { font-size: 18px; overflow-wrap: anywhere; }
+.team-confirm-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.members-head h3:focus { outline: none; }
+.members-head h3:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; border-radius: 4px; }
+.slot-who { min-width: 0; }
+.slot-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
+.chip.chip-owner { padding: 1px 8px; font-size: 11px; font-weight: 700; }
+.team-time-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.team-time-list li { color: var(--color-ink); }
+.team-time p { margin: 0; }
+.team-time { display: flex; flex-direction: column; gap: 10px; }
+.team-time .avail-grid { margin-top: 4px; }
+
+@media (max-width: 640px) {
+  .profile-actions { align-items: stretch; width: 100%; max-width: 100%; }
+  .profile-actions .row { justify-content: flex-start; }
+  .profile-actions > span { text-align: left; }
+}
+/* The whole open-spot tile is the "Find someone" target: the link's hit area stretches over it. */
+.team-page .slot-open a::after { content: ''; position: absolute; inset: 0; border-radius: inherit; }
+
+@media (max-width: 560px) {
+  /* Phones: the profile's actions stack full width, the main one (Invite) last, where the thumb is. */
+  .profile-actions .row > .btn { flex: 1 1 100%; }
+  /* Contact is the card's main task once unlocked: thumb-sized buttons that split the row. */
+  .contact-card > .contact-actions .btn { flex: 1 1 0; min-height: 44px; }
+  .contact-row .contact-actions .btn { min-height: 40px; padding: 0 14px; }
+  .contact-locked-body .btn { min-height: 40px; }
+  .team-confirm-actions .btn { flex: 1 1 auto; }
+}
+@media (max-width: 480px) {
+  .team-page .slots { grid-template-columns: 1fr; gap: 8px; }
+  .team-page .slot-open { padding: 10px 14px; }
+  .team-page .slot-open .slot-plus { width: 32px; height: 32px; font-size: 18px; }
+  .contact-row .contact-actions { padding-left: 44px; }
+}
+
+/* ---------- Per-look tweaks ---------- */
+html.theme-aurora:not(.theme-retro) .contact-locked,
+html.theme-aurora:not(.theme-retro) .contact-field { background: rgba(255, 255, 255, 0.035); border-color: var(--color-hairline); }
+html.theme-glass:not(.theme-retro) .contact-locked,
+html.theme-glass:not(.theme-retro) .contact-field { background: var(--color-surface-soft); border-radius: var(--radius-md); }
+html.theme-soft .contact-locked,
+html.theme-soft .contact-field { border-radius: var(--radius-md); border: 1.5px solid var(--color-hairline); }
+.theme-retro .contact-locked,
+.theme-retro .contact-field { border-radius: 0; }

@@ -22,7 +22,7 @@
 
 /* ---------- Layout ---------- */
 .setup-stage { overflow-x: clip; }
-.setup-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-lg); }
+.setup-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-lg); align-items: start; }
 .card.setup-card { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
 .setup-card-head h2 { font-size: 17px; font-weight: 600; }
 .setup-card-head p { margin: 2px 0 0; font-size: 13px; color: var(--color-muted); }
@@ -77,7 +77,23 @@
 .check { display: inline-flex; align-items: center; gap: 8px; min-height: 32px; font-size: 14px; color: var(--color-ink); cursor: pointer; }
 .check input { width: 18px; height: 18px; margin: 0; accent-color: var(--color-primary); cursor: pointer; }
 
-.setup-note { margin: 0; display: flex; gap: 8px; align-items: flex-start; padding: 8px 12px; border-radius: var(--radius-sm); background: var(--color-surface-soft); font-size: 12px; color: var(--color-muted); }
+.setup-note { margin: 0; display: flex; gap: 8px; align-items: flex-start; padding: 8px 12px; border-radius: var(--radius-sm); background: var(--color-surface-soft); font-size: 12px; color: var(--color-muted); text-wrap: pretty; }
+/* A notice that needs action (old draft lost its evenings): warm tint and the round "!" badge, like Find's notices. */
+.setup-note.setup-note-warn,
+html.theme-aurora:not(.theme-retro) .setup-note.setup-note-warn,
+html.theme-glass:not(.theme-retro) .setup-note.setup-note-warn,
+html.theme-soft .setup-note.setup-note-warn { align-items: center; background: var(--color-warn-soft); color: var(--color-ink); font-size: 13px; }
+.setup-note-warn .find-note-icon { background: var(--color-canvas); }
+/* Keeps "(8–11 pm)" and "Fri 11 pm–Sat 1 am" on one line. */
+.setup-nowrap { white-space: nowrap; }
+
+/* Read-only UF email in The basics: the address with a "Verified" chip. */
+.setup-readonly { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; min-height: 44px; padding: 8px 12px; border: 1px dashed var(--color-border-strong); border-radius: var(--radius-sm); background: var(--color-surface-soft); }
+.setup-readonly-value { font-size: 15px; font-weight: 600; color: var(--color-ink); overflow-wrap: anywhere; }
+.chip.chip-good,
+html.theme-aurora:not(.theme-retro) .chip.chip-good,
+html.theme-glass:not(.theme-retro) .chip.chip-good,
+html.theme-soft .chip.chip-good:nth-child(n) { background: var(--color-good-soft); border-color: transparent; color: var(--color-good); font-weight: 600; }
 
 /* ---------- Goal radio cards ---------- */
 .radio-cards { display: flex; flex-direction: column; gap: 8px; }
@@ -198,10 +214,15 @@
 .setup-toast-icon { width: 24px; height: 24px; border-radius: var(--radius-full); display: grid; place-items: center; background: var(--color-good); font-size: 12px; font-weight: 800; }
 
 /* ---------- Preview dialog ---------- */
-.setup-dialog { width: min(460px, calc(100% - 32px)); padding: 0; border: 0; border-radius: var(--radius-lg); background: var(--color-canvas); color: var(--color-body); box-shadow: var(--shadow-float); }
+.setup-dialog { width: min(460px, calc(100% - 32px)); max-height: calc(100dvh - 32px); padding: 0; border: 0; border-radius: var(--radius-lg); background: var(--color-canvas); color: var(--color-body); box-shadow: var(--shadow-float); }
 .setup-dialog::backdrop { background: color-mix(in srgb, var(--color-ink) 45%, transparent); }
 .setup-dialog-body { display: flex; flex-direction: column; gap: 14px; padding: 20px; }
-.setup-dialog-body p { margin: 0; }
+.setup-dialog-body p { margin: 0; overflow-wrap: anywhere; }
+/* "Back to editing" stays in view when the dialog scrolls on a short screen (the 7 x 5 grid made it taller). */
+.setup-dialog-foot { position: sticky; bottom: 0; z-index: 1; margin: 0 -20px -20px; padding: 12px 20px 20px; background: var(--color-canvas); border-top: 1px solid var(--color-hairline-soft); }
+html.theme-glass:not(.theme-retro) .setup-dialog-foot,
+html.theme-soft .setup-dialog-foot { margin: 0 -24px -24px; padding: 12px 24px 24px; }
+html.theme-aurora:not(.theme-retro) .setup-dialog-foot { background: #111119; }
 .setup-dialog-head { display: flex; align-items: center; gap: 8px; }
 .setup-dialog-x { width: 36px; height: 36px; padding: 0; border: 0; border-radius: var(--radius-full); display: grid; place-items: center; background: transparent; color: var(--color-ink); font-size: 22px; line-height: 1; }
 .setup-dialog-x:hover { background: var(--color-surface-soft); }
@@ -209,13 +230,14 @@
 
 /* ---------- Availability picker ---------- */
 .ap { display: flex; flex-direction: column; gap: 10px; }
-.ap-grid { display: grid; grid-template-columns: auto repeat(5, minmax(0, 1fr)); gap: 6px; align-items: center; user-select: none; -webkit-user-select: none; }
+.ap-grid { display: grid; grid-template-columns: auto repeat(7, minmax(0, 1fr)); gap: 6px; align-items: center; user-select: none; -webkit-user-select: none; }
 .ap-head { text-align: center; font-size: 12px; font-weight: 600; color: var(--color-muted); }
 .ap-label { padding-right: 6px; font-size: 12px; color: var(--color-muted); }
 .ap-cell {
   height: 44px;
   padding: 0;
-  border: 1px solid var(--color-hairline);
+  /* The edge is all an empty cell has, so it needs 3:1 against the card (WCAG 1.4.11); the hairline was 1.4:1. */
+  border: 1px solid var(--color-muted-soft);
   border-radius: var(--radius-sm);
   display: grid;
   place-items: center;
@@ -229,16 +251,33 @@
 }
 .ap-cell:hover { background: var(--color-primary-soft); border-color: var(--color-primary-disabled); }
 .ap-cell:active { transform: scale(0.94); }
+/* The press effect is for a tap: the cell a drag started on keeps its size while the rest of the row paints. */
+.ap.is-painting .ap-cell:active { transform: none; }
 .ap-cell.is-on { background: var(--color-primary); border-color: var(--color-primary); }
 .ap-cell.is-on:hover { background: var(--color-primary-active); }
 .ap-invalid .ap-cell { border-color: var(--color-warn); }
 .ap.is-painting .ap-cell { cursor: crosshair; }
+/* The roving cell gets an ink ring: it stays visible next to filled (accent) neighbours. */
+.ap .ap-cell:focus-visible { position: relative; z-index: 1; outline: 2px solid var(--color-ink); outline-offset: 2px; }
 .ap-meta { display: flex; align-items: center; gap: 8px; min-height: 32px; }
+.ap-summary { font-variant-numeric: tabular-nums; }
+.ap-footnote { margin: -8px 0 0; text-wrap: pretty; }
+/* Keyboard help, shown only while a cell has keyboard focus. */
+.ap-keys { display: none; margin: -4px 0 0; }
+.ap:has(.ap-cell:focus-visible) .ap-keys { display: block; }
 .ap-meta .btn-ghost:disabled, .setup-bar .btn-ghost:disabled { color: var(--color-muted-soft); text-decoration: none; cursor: default; transform: none; }
 @media (prefers-reduced-motion: no-preference) {
   .ap-check { animation: ap-pop 180ms var(--ease-out); }
 }
 @keyframes ap-pop { from { transform: scale(0.3); opacity: 0; } }
+
+/* Empty-cell edges per look, at least 3:1 against the card. Marked, hovered and invalid cells keep the theme's own edge. */
+html.theme-aurora:not(.theme-retro) .ap:not(.ap-invalid) .ap-cell:not(.is-on):not(:hover) { border-color: rgba(255, 255, 255, 0.36); }
+html.theme-glass:not(.theme-retro) .ap:not(.ap-invalid) .ap-cell:not(.is-on):not(:hover) { border-color: rgba(17, 17, 40, 0.5); }
+html.theme-soft .ap:not(.ap-invalid) .ap-cell:not(.is-on):not(:hover) { border-color: #9c8166; }
+
+/* The sticky Save draft / Preview / Next bar must never cover the field that has focus (WCAG 2.4.11). */
+html:has(.setup-bar) { scroll-padding-bottom: 104px; }
 
 /* ---------- Small screens ---------- */
 @media (max-width: 820px) {
@@ -246,9 +285,20 @@
   .card.setup-card { padding: 18px; }
   .setup-bar { bottom: 8px; }
   .setup-alert { flex-basis: 100%; order: -1; }
+  /* The bar can wrap to two rows here. */
+  html:has(.setup-bar) { scroll-padding-bottom: 148px; }
 }
-@media (max-width: 420px) {
+@media (max-width: 560px) {
+  /* 16 px text, so iOS Safari doesn't zoom in when a field gets focus (sign-up, New project, profile setup). */
+  .setup-input, .setup-select, .tag-input { font-size: 16px; }
+}
+@media (max-width: 480px) {
+  /* When the action bar wraps, the main action stays on the right. */
+  .setup-bar .btn-primary { margin-left: auto; }
+  /* 16 px gutters and a slimmer card so seven columns stay at least 32 px wide on a 390 px phone. */
+  .page.setup-page { padding-left: 16px; padding-right: 16px; }
+  .card.setup-card { padding: 16px 14px; }
   .ap-grid { gap: 4px; }
-  .ap-cell { height: 40px; }
-  .ap-label { font-size: 11px; padding-right: 2px; }
+  .ap-cell { height: 40px; min-width: 32px; border-radius: 6px; }
+  .ap-label { padding-right: 2px; }
 }

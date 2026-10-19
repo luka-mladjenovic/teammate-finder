@@ -479,10 +479,11 @@ html.theme-soft .avail-cell.avail-shared {
   border-color: var(--soft-primary-edge);
   box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.16);
 }
-html.theme-soft .avail-cell.avail-theirs { background: #ddd2ff; border-color: #8f74f0; }
+/* Free and only-one-side edges stay at 3:1 or more against the card (WCAG 1.4.11); the pastel fills are too pale alone. */
+html.theme-soft .avail-cell.avail-theirs { background: #ddd2ff; border-color: #8266ee; }
 html.theme-soft .avail-cell.avail-ours {
-  background: repeating-linear-gradient(135deg, #ffffff 0 3px, #ffd9bf 3px 6px);
-  border-color: #f2bf9c;
+  background: repeating-linear-gradient(135deg, #ffffff 0 3px, #ffcfae 3px 6px);
+  border-color: #ae6c44;
 }
 html.theme-soft .avail-sm .avail-cell { border-radius: 5px; border-width: 1px; }
 html.theme-soft .avail-sm .avail-cell.avail-shared { box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.16); }

@@ -218,6 +218,7 @@
 .fun-toast {
   pointer-events: auto;
   max-width: 100%;
+  overflow-wrap: anywhere; /* a long unbroken project name must not widen the page */
   padding: 10px 18px;
   border-radius: var(--radius-full);
   background: var(--color-ink);

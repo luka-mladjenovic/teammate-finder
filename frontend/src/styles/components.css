@@ -79,8 +79,8 @@
 .compare-cell.is-diff { font-weight: 700; }
 
 /* ---------- Availability grid ---------- */
-.avail-grid { display: grid; grid-template-columns: auto repeat(5, 1fr); gap: 6px; align-items: center; margin-top: 10px; }
-.avail-sm .avail-grid { gap: 3px; margin-top: 0; max-width: 170px; }
+.avail-grid { display: grid; grid-template-columns: auto repeat(7, minmax(0, 1fr)); gap: 6px; align-items: center; margin-top: 10px; }
+.avail-sm .avail-grid { gap: 3px; margin-top: 0; max-width: 220px; }
 .avail-row { display: contents; }
 .avail-head { font-size: 12px; font-weight: 600; text-align: center; color: var(--color-muted); }
 .avail-label { font-size: 12px; color: var(--color-muted); padding-right: 6px; }
@@ -100,8 +100,7 @@
 .plain-list { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
 
 /* ---------- My team ---------- */
-.team-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: var(--space-lg); }
-.team-grid > :last-child { grid-column: 1 / -1; }
+.team-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: var(--space-lg); }
 .slots { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 14px; }
 .slot { position: relative; display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: var(--radius-md); }
 .slot-filled { border: 1px solid var(--color-hairline); }
@@ -112,13 +111,18 @@
 .coverage li { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--color-ink); padding: 8px 10px; border-radius: var(--radius-sm); background: var(--color-surface-soft); }
 .coverage .missing { background: var(--color-warn-soft); }
 
+/* ---------- Copy button: "Copy email" and "Copied ✓" stacked in one cell, so the width never changes ---------- */
+.copy-faces { display: inline-grid; }
+.copy-face { grid-area: 1 / 1; text-align: center; }
+.copy-face[data-on='false'] { visibility: hidden; }
+
 /* ---------- Empty states ---------- */
 .empty { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 8px; padding-top: 80px; }
+@media (max-width: 560px) { .empty .btn { min-height: 40px; } }
 .empty-ghost { font-size: 48px; animation: float 3s ease-in-out infinite; }
 @keyframes float { 50% { transform: translateY(-8px); } }
 
 @media (max-width: 820px) {
-  .topnav-links { display: none; }
   .filterbar { flex-wrap: wrap; border-radius: var(--radius-lg); }
   .seg + .seg { border-left: 0; }
   .team-grid { grid-template-columns: 1fr; }
@@ -174,8 +178,8 @@
   .topnav-inner { gap: 12px; padding: 0 16px; }
   .brand { white-space: nowrap; }
   .topnav-actions { gap: 6px; }
-  /* Both pills keep their aria-labels; on phones they shrink to dots and a swatch. */
-  .team-pill > span.small,
+  /* The Style button keeps its aria-label; on phones it shrinks to a swatch.
+     The project switcher handles its own phone layout (styles/projects.css). */
   .style-trigger > span.small { display: none; }
   .style-trigger { padding: 6px; }
 }

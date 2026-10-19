@@ -418,10 +418,11 @@ html.theme-glass:not(.theme-retro) .avail-shared {
   border-color: #4338ca;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 0 0 3px rgba(79, 70, 229, 0.14);
 }
-html.theme-glass:not(.theme-retro) .avail-theirs { background: #e0ddff; border-color: #b3acfb; }
+/* Free and only-one-side edges stay at 3:1 or more against the card (WCAG 1.4.11); the fills are too pale alone. */
+html.theme-glass:not(.theme-retro) .avail-theirs { background: #e0ddff; border-color: #7a71ec; }
 html.theme-glass:not(.theme-retro) .avail-ours {
-  background: repeating-linear-gradient(135deg, #ffffff 0 4px, #e4e4ee 4px 8px);
-  border-color: rgba(17, 17, 40, 0.12);
+  background: repeating-linear-gradient(135deg, #ffffff 0 3px, #d9d9e6 3px 6px);
+  border-color: #80809a;
 }
 html.theme-glass:not(.theme-retro) .tcard-legend .avail-cell { box-shadow: none; }
 

@@ -1,9 +1,10 @@
 import type { MatchReason } from '../types'
 
-export function MatchReasons({ reasons, title = 'Why this matches' }: { reasons: MatchReason[]; title?: string }) {
+/** The plain checks behind a match. One name everywhere: "Match checks" (an empty title hides the heading). */
+export function MatchReasons({ reasons, title = 'Match checks' }: { reasons: MatchReason[]; title?: string }) {
   return (
     <div className="reasons">
-      <div className="reasons-title">{title}</div>
+      {title && <div className="reasons-title">{title}</div>}
       <ul>
         {reasons.map((r) => (
           <li key={r.text} className={`reason reason-${r.kind}`}>

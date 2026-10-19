@@ -2,14 +2,19 @@ import '../styles/teams.css'
 import confetti from 'canvas-confetti'
 import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from 'motion/react'
 import { useEffect, useId, useMemo, useRef, useState, type Ref } from 'react'
+import { USING_MOCK } from '../api'
 import { AvailabilityGrid } from '../components/AvailabilityGrid'
 import { Avatar } from '../components/Avatar'
+import { SHARED_HOURS_OPTIONS } from '../components/FilterBar'
 import { MatchReasons } from '../components/MatchReasons'
-import { TEAM_POSTS, type TeamPost } from '../data/teamPosts'
-import { DAY_LABEL, GOAL_LABEL, PACE_LABEL, ROLE_LABEL, SLOT_LABEL } from '../labels'
-import { MIN_SHARED_SLOTS } from '../lib/matching'
+import { SignedOutPage } from '../components/SignedOutPage'
+import { DAY_LABEL, GOAL_LABEL, PACE_LABEL, ROLE_LABEL, SLOT_LABEL, SLOT_TIME } from '../labels'
+import { formatH, formatHours, groupByBlock, hoursOf } from '../lib/availability'
+import { joinWords } from '../lib/contact'
+import { MIN_SHARED_HOURS } from '../lib/matching'
+import { useArrivalFocus } from '../lib/useArrivalFocus'
 import { useAppData } from '../state/AppData'
-import type { Day, Goal, MatchReason, Role, Slot, SlotKey, Student } from '../types'
+import type { Goal, MatchReason, Role, SlotKey, Student, TeamPost } from '../types'
 
 type SortKey = 'fit' | 'shared' | 'newest'
 
@@ -17,7 +22,8 @@ interface TeamFilters {
   /** Roles the viewer says they can fill. Empty means any role. */
   roles: Role[]
   goal: Goal | 'any'
-  minShared: number
+  /** Hours a week shared with the viewer; 0 = any. */
+  minSharedHours: number
   sort: SortKey
 }
 
@@ -31,12 +37,9 @@ function sharedSlots(post: TeamPost, viewer: Student): SlotKey[] {
   return post.availability.filter((s) => viewer.availability.includes(s))
 }
 
-const lower = (s: string) => s.toLowerCase()
+const sharedHoursWith = (post: TeamPost, viewer: Student) => hoursOf(sharedSlots(post, viewer))
 
-function joinWords(words: string[]) {
-  if (words.length <= 1) return words.join('')
-  return `${words.slice(0, -1).join(', ')} and ${words[words.length - 1]}`
-}
+const lower = (s: string) => s.toLowerCase()
 
 /** Plain checks for one team, from the viewer's side. No hidden score is shown. */
 function teamFitReasons(post: TeamPost, viewer: Student, myRoles: Role[]): MatchReason[] {
@@ -45,15 +48,15 @@ function teamFitReasons(post: TeamPost, viewer: Student, myRoles: Role[]): Match
   const fills = post.rolesNeeded.filter((r) => myRoles.includes(r))
   reasons.push(
     fills.length > 0
-      ? { kind: 'good', text: `You fill their ${joinWords(fills.map((r) => lower(ROLE_LABEL[r])))} role${fills.length > 1 ? 's' : ''}` }
+      ? { kind: 'good', text: `You fill their ${joinWords(fills.map((r) => ROLE_LABEL[r]))} role${fills.length > 1 ? 's' : ''}` }
       : { kind: 'warn', text: "You don't cover a role they need" },
   )
 
-  const shared = sharedSlots(post, viewer).length
+  const hours = sharedHoursWith(post, viewer)
   reasons.push(
-    shared >= MIN_SHARED_SLOTS
-      ? { kind: 'good', text: `${shared} time slots shared with you` }
-      : { kind: 'warn', text: shared === 0 ? 'No time shared with you' : `Only ${shared} shared time slot${shared === 1 ? '' : 's'}` },
+    hours >= MIN_SHARED_HOURS
+      ? { kind: 'good', text: `${formatHours(hours)} together` }
+      : { kind: 'warn', text: hours === 0 ? 'No time shared with you' : `Only ${formatHours(hours)} together` },
   )
 
   reasons.push(
@@ -71,23 +74,24 @@ function teamFitReasons(post: TeamPost, viewer: Student, myRoles: Role[]): Match
   return reasons
 }
 
-/** Only used for the "Best fit" sort: passed checks first, then shared time. */
+/** Only used for the "Best fit" sort: passed checks minus warnings. Shared hours only break ties. */
 function fitScore(post: TeamPost, viewer: Student, myRoles: Role[]) {
-  const good = teamFitReasons(post, viewer, myRoles).filter((r) => r.kind === 'good').length
-  return good * 10 + sharedSlots(post, viewer).length
+  return teamFitReasons(post, viewer, myRoles).reduce((n, r) => n + (r.kind === 'good' ? 1 : -1), 0)
 }
 
 function postedLabel(iso: string) {
   const hours = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 3_600_000))
   if (hours < 1) return 'Posted just now'
-  if (hours < 24) return `Posted ${hours}h ago`
+  if (hours < 24) return `Posted ${formatH(hours)} ago`
   const days = Math.floor(hours / 24)
   return days === 1 ? 'Posted yesterday' : `Posted ${days} days ago`
 }
 
-function slotText(key: SlotKey) {
-  const [d, s] = key.split('-') as [Day, Slot]
-  return `${DAY_LABEL[d]} ${lower(SLOT_LABEL[s])}`
+/** "19 h a week together: Afternoon (12–5 pm) Thu, Sun; Late evening (8–11 pm) Tue, Wed, Thu." */
+function sharedTimeText(shared: SlotKey[]) {
+  if (shared.length === 0) return 'No shared time.'
+  const groups = groupByBlock(shared).map((g) => `${SLOT_LABEL[g.slot]} (${SLOT_TIME[g.slot]}) ${g.days.map((d) => DAY_LABEL[d]).join(', ')}`)
+  return `${formatHours(hoursOf(shared))} together: ${groups.join('; ')}.`
 }
 
 function firstNames(post: TeamPost) {
@@ -126,25 +130,26 @@ function burstFrom(el: HTMLElement | null) {
 /* ---------- Page ---------- */
 
 export function OpenTeams() {
-  const { loading, error, viewer } = useAppData()
+  const { loading, error, session, viewer, teamPosts, requestedPostIds: requested, requestToJoin, cancelRequest } = useAppData()
   const rolesLabelId = useId()
+  const sharedDescId = useId()
+  const headingRef = useArrivalFocus(!loading && Boolean(viewer))
 
   const defaults = useMemo<TeamFilters>(
-    () => ({ roles: viewer?.roles ?? [], goal: 'any', minShared: 0, sort: 'fit' }),
+    () => ({ roles: viewer?.roles ?? [], goal: 'any', minSharedHours: 0, sort: 'fit' }),
     [viewer],
   )
   const [filters, setFilters] = useState<TeamFilters | null>(null)
   const f = filters ?? defaults
   const reset = () => setFilters(null)
 
-  const [requested, setRequested] = useState<string[]>([])
   const [announcement, setAnnouncement] = useState({ text: '', n: 0 })
   const announce = (text: string) => setAnnouncement((a) => ({ text, n: a.n + 1 }))
 
   /** Roles used for highlights and checks: what the viewer picked, else their profile roles. */
   const myRoles = useMemo(() => (f.roles.length > 0 ? f.roles : (viewer?.roles ?? [])), [f.roles, viewer])
 
-  const openPosts = useMemo(() => TEAM_POSTS.filter((p) => p.members.length < p.size), [])
+  const openPosts = useMemo(() => teamPosts.filter((p) => p.members.length < p.size), [teamPosts])
 
   const results = useMemo(() => {
     if (!viewer) return []
@@ -152,11 +157,12 @@ export function OpenTeams() {
       (p) =>
         (f.roles.length === 0 || p.rolesNeeded.some((r) => f.roles.includes(r))) &&
         (f.goal === 'any' || p.goal === f.goal) &&
-        sharedSlots(p, viewer).length >= f.minShared,
+        sharedHoursWith(p, viewer) >= f.minSharedHours,
     )
     const newest = (a: TeamPost, b: TeamPost) => b.postedAt.localeCompare(a.postedAt)
-    const fit = (a: TeamPost, b: TeamPost) => fitScore(b, viewer, myRoles) - fitScore(a, viewer, myRoles)
-    const shared = (a: TeamPost, b: TeamPost) => sharedSlots(b, viewer).length - sharedSlots(a, viewer).length
+    const checks = (a: TeamPost, b: TeamPost) => fitScore(b, viewer, myRoles) - fitScore(a, viewer, myRoles)
+    const shared = (a: TeamPost, b: TeamPost) => sharedHoursWith(b, viewer) - sharedHoursWith(a, viewer)
+    const fit = (a: TeamPost, b: TeamPost) => checks(a, b) || shared(a, b)
     const sorted = [...list]
     if (f.sort === 'newest') sorted.sort(newest)
     if (f.sort === 'fit') sorted.sort((a, b) => fit(a, b) || newest(a, b))
@@ -168,16 +174,26 @@ export function OpenTeams() {
   const toggleRole = (r: Role) =>
     set('roles', f.roles.includes(r) ? f.roles.filter((x) => x !== r) : ALL_ROLES.filter((x) => x === r || f.roles.includes(x)))
 
-  const handleRequest = (p: TeamPost) => {
-    setRequested((ids) => (ids.includes(p.id) ? ids : [...ids, p.id]))
-    announce(`Request sent to ${p.project}. You can cancel it any time.`)
+  // Requests live in app state, so "Requested" survives leaving the page. A failure undoes the change and is
+  // announced by AppData; only a request that went through is announced here.
+  const handleRequest = async (p: TeamPost) => {
+    if (await requestToJoin(p.id)) announce(`Request sent to ${p.project}. If they accept, the team is added to your projects.`)
   }
-  const handleCancel = (p: TeamPost) => {
-    setRequested((ids) => ids.filter((x) => x !== p.id))
-    announce(`Request to ${p.project} canceled.`)
+  const handleCancel = async (p: TeamPost) => {
+    if (await cancelRequest(p.id)) announce(`Request to ${p.project} canceled.`)
   }
 
   if (error) return <div className="page"><p>Couldn't load data: {error}</p></div>
+
+  // Real API, signed out: no teams are loaded and there is no profile to check them against, so the loading
+  // placeholder would never end. Say what signing in opens instead.
+  if (!loading && !USING_MOCK && session === 'signed_out') {
+    return (
+      <SignedOutPage title="Sign in to see open teams">
+        Sign in with your UF email to see teams that still need people and how you fit each one, then ask to join.
+      </SignedOutPage>
+    )
+  }
 
   const count = openPosts.length
   const sent = requested.length
@@ -186,8 +202,9 @@ export function OpenTeams() {
     <div className="page">
       <section className="find-hero">
         <div>
-          <h1>Open teams</h1>
+          <h1 ref={headingRef} tabIndex={-1}>Open teams</h1>
           <p className="muted">Teams that still need people. See who's in, what they need, and when they meet.</p>
+          <p className="small muted teams-basis">The fit checks use your own profile, not your current project.</p>
         </div>
         <div className="context-card">
           <div className="tiny muted">Right now</div>
@@ -211,13 +228,19 @@ export function OpenTeams() {
           </label>
           <label className="seg">
             <span className="seg-label">Shared time</span>
-            <select value={f.minShared} onChange={(e) => set('minShared', Number(e.target.value))}>
+            <select
+              value={f.minSharedHours}
+              onChange={(e) => set('minSharedHours', Number(e.target.value))}
+              aria-describedby={sharedDescId}
+            >
               <option value={0}>Any</option>
-              {[1, 2, 3, 4].map((n) => (
-                <option key={n} value={n}>{n}+ slots</option>
+              {SHARED_HOURS_OPTIONS.map((n) => (
+                <option key={n} value={n}>{n}+ h a week</option>
               ))}
             </select>
           </label>
+          {/* Outside the label, so it is only the select's description and not part of its name. */}
+          <span id={sharedDescId} className="sr-only">Hours a week when you and everyone on that team are free.</span>
           <label className="seg">
             <span className="seg-label">Sort</span>
             <select value={f.sort} onChange={(e) => set('sort', e.target.value as SortKey)}>
@@ -232,7 +255,7 @@ export function OpenTeams() {
         </div>
 
         <div className="teams-roles" role="group" aria-labelledby={rolesLabelId}>
-          <span id={rolesLabelId} className="teams-roles-label">Roles I can fill</span>
+          <span id={rolesLabelId} className="teams-roles-label">Roles you can fill</span>
           <div className="teams-role-chips">
             <button type="button" className="teams-toggle" aria-pressed={Boolean(viewer) && f.roles.length === 0} onClick={() => set('roles', [])}>
               Any role
@@ -282,8 +305,8 @@ export function OpenTeams() {
                   myRoles={myRoles}
                   index={i}
                   requested={requested.includes(p.id)}
-                  onRequest={() => handleRequest(p)}
-                  onCancel={() => handleCancel(p)}
+                  onRequest={() => void handleRequest(p)}
+                  onCancel={() => void handleCancel(p)}
                 />
               ))}
             </AnimatePresence>
@@ -314,10 +337,17 @@ function TeamCard({ post, viewer, myRoles, index, requested, onRequest, onCancel
   const cancelRef = useRef<HTMLButtonElement>(null)
   const focusNext = useRef<'request' | 'cancel' | null>(null)
 
-  // Keep keyboard focus on the action after the button swaps.
+  // Keep keyboard focus on the action after the button swaps, also when a failed request swaps it back
+  // (the focused Cancel button is gone then, so focus would otherwise drop to the page).
+  const wasRequested = useRef(requested)
   useEffect(() => {
-    if (focusNext.current === 'cancel') cancelRef.current?.focus()
-    if (focusNext.current === 'request') requestRef.current?.focus()
+    if (wasRequested.current === requested) return
+    wasRequested.current = requested
+    if (requested) {
+      if (focusNext.current === 'cancel') cancelRef.current?.focus()
+    } else if (focusNext.current === 'request' || document.activeElement === document.body) {
+      requestRef.current?.focus()
+    }
     focusNext.current = null
   }, [requested])
 
@@ -360,7 +390,7 @@ function TeamCard({ post, viewer, myRoles, index, requested, onRequest, onCancel
         </span>
       </div>
 
-      <p className="tcard-note">“{post.note}”</p>
+      {post.note && <p className="tcard-note">“{post.note}”</p>}
 
       <div>
         <div className="tcard-label">Needs</div>
@@ -396,16 +426,22 @@ function TeamCard({ post, viewer, myRoles, index, requested, onRequest, onCancel
         </dl>
 
         <div className="tcard-time">
-          <div className="tcard-label">Your time vs. theirs</div>
-          <AvailabilityGrid size="sm" theirs={viewer.availability} compareTo={post.availability} compareLabel="This team" />
+          <div className="tcard-label">Your time and theirs</div>
+          {/* Same colour code as Find teammates: the other side's time is "theirs" (edged), yours is striped. */}
+          <AvailabilityGrid
+            size="sm"
+            theirs={post.availability}
+            theirsLabel="this team"
+            compareTo={viewer.availability}
+            compareLabel="you"
+            label={`${post.project}'s free times next to yours`}
+          />
           <div className="tcard-legend tiny muted" aria-hidden="true">
             <span><i className="avail-cell avail-shared" />Both</span>
-            <span><i className="avail-cell avail-ours" />Team</span>
-            <span><i className="avail-cell avail-theirs" />You</span>
+            <span><i className="avail-cell avail-ours" />Only you</span>
+            <span><i className="avail-cell avail-theirs" />Only team</span>
           </div>
-          <span className="sr-only">
-            {shared.length === 0 ? 'No shared time.' : `Shared time: ${shared.map(slotText).join(', ')}.`}
-          </span>
+          <span className="sr-only">{sharedTimeText(shared)}</span>
         </div>
       </div>
 
@@ -422,7 +458,6 @@ function TeamCard({ post, viewer, myRoles, index, requested, onRequest, onCancel
             >
               Requested <CheckMark />
             </motion.span>
-            <span className="tiny muted">They'll see your profile.</span>
             <span className="spacer" />
             <button
               ref={cancelRef}
@@ -435,6 +470,10 @@ function TeamCard({ post, viewer, myRoles, index, requested, onRequest, onCancel
             >
               Cancel request<span className="sr-only"> to {post.project}</span>
             </button>
+            <p className="tcard-next tiny muted">
+              They'll see your profile. If they accept, the team is added to your projects. Switch to it to see their UF
+              emails on My team.
+            </p>
           </>
         ) : (
           <>

@@ -1,32 +1,11 @@
 // Fictional partial teams that are recruiting, for the "I need a team" side (/teams).
 // All people, teams and projects are made up. Posts are tuned against the default viewer (ME in mock.ts:
-// lead/backend, strong grade, steady pace, free Tue/Thu afternoons and Mon-Thu evenings) so the page shows
-// a clear best fit, a few trade-offs, and one team that is hidden by the default role filter.
-import type { Goal, Pace, Role, SlotKey } from '../types'
+// lead/backend, strong grade, steady pace, free Tue/Thu afternoons, late evenings Mon-Thu, Wed/Thu nights
+// and Sunday afternoon) so the page shows one clear best fit (Course Planner API, 19 h a week together),
+// a few trade-offs, and one team that is hidden by the default role filter.
+import type { TeamPost } from '../types'
 
-export interface TeamPostMember {
-  id: string
-  name: string
-  /** Main role first. */
-  roles: Role[]
-}
-
-export interface TeamPost {
-  id: string
-  project: string
-  course: string
-  members: TeamPostMember[]
-  rolesNeeded: Role[]
-  goal: Goal
-  pace: Pace
-  /** Time blocks every current member is free. */
-  availability: SlotKey[]
-  size: number
-  /** One line from the team, written by them. */
-  note: string
-  /** ISO date-time. */
-  postedAt: string
-}
+export type { TeamPost, TeamPostMember } from '../types'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 /** Keeps "posted N days ago" stable no matter when the demo runs. */
@@ -44,7 +23,7 @@ export const TEAM_POSTS: TeamPost[] = [
     rolesNeeded: ['backend', 'lead'],
     goal: 'strong_grade',
     pace: 'steady',
-    availability: ['thu-pm', 'tue-eve', 'wed-eve', 'thu-eve', 'fri-pm'],
+    availability: ['tue-late_evening', 'wed-late_evening', 'thu-afternoon', 'thu-late_evening', 'fri-afternoon', 'sun-afternoon'],
     size: 4,
     note: 'The UI is mocked up. We need someone to own the database and API.',
     postedAt: daysAgo(1, 3),
@@ -61,7 +40,7 @@ export const TEAM_POSTS: TeamPost[] = [
     rolesNeeded: ['backend'],
     goal: 'portfolio',
     pace: 'early',
-    availability: ['mon-am', 'wed-am', 'fri-am', 'tue-eve'],
+    availability: ['mon-morning', 'tue-late_evening', 'wed-morning', 'fri-morning', 'sat-morning'],
     size: 4,
     note: 'One spot left. We like early mornings and want something worth showing off.',
     postedAt: daysAgo(0, 5),
@@ -77,7 +56,7 @@ export const TEAM_POSTS: TeamPost[] = [
     rolesNeeded: ['lead', 'testing'],
     goal: 'strong_grade',
     pace: 'deadline',
-    availability: ['mon-eve', 'tue-eve', 'wed-eve', 'thu-pm'],
+    availability: ['mon-late_evening', 'tue-late_evening', 'wed-late_evening', 'wed-night', 'thu-afternoon'],
     size: 4,
     note: 'We work best in focused pushes before each milestone.',
     postedAt: daysAgo(3),
@@ -93,7 +72,7 @@ export const TEAM_POSTS: TeamPost[] = [
     rolesNeeded: ['docs', 'testing'],
     goal: 'pass',
     pace: 'steady',
-    availability: ['tue-pm', 'thu-pm', 'thu-eve'],
+    availability: ['tue-afternoon', 'thu-afternoon', 'thu-early_evening'],
     size: 4,
     note: 'Relaxed team. Looking for someone organized to own docs and testing.',
     postedAt: daysAgo(2),
@@ -110,7 +89,7 @@ export const TEAM_POSTS: TeamPost[] = [
     rolesNeeded: ['backend', 'frontend'],
     goal: 'strong_grade',
     pace: 'early',
-    availability: ['mon-eve', 'wed-eve', 'thu-eve', 'fri-pm'],
+    availability: ['mon-late_evening', 'wed-late_evening', 'thu-late_evening', 'fri-afternoon', 'sat-afternoon'],
     size: 5,
     note: 'Real sensor data, weekly check-ins, and a demo day at the end.',
     postedAt: daysAgo(5),
@@ -126,7 +105,7 @@ export const TEAM_POSTS: TeamPost[] = [
     rolesNeeded: ['lead', 'backend', 'testing'],
     goal: 'portfolio',
     pace: 'steady',
-    availability: ['mon-pm', 'wed-pm', 'fri-am', 'fri-pm', 'thu-eve'],
+    availability: ['mon-afternoon', 'wed-afternoon', 'thu-early_evening', 'fri-morning', 'fri-afternoon'],
     size: 4,
     note: 'We just formed. Need help planning the schema and keeping us on track.',
     postedAt: daysAgo(0, 1),

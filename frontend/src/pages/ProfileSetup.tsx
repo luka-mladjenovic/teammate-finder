@@ -1,19 +1,25 @@
 import '../styles/setup.css'
 import { AnimatePresence, motion, type Variants } from 'motion/react'
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { isApiError, USING_MOCK } from '../api'
 import { AvailabilityGrid } from '../components/AvailabilityGrid'
 import { AvailabilityPicker } from '../components/AvailabilityPicker'
+import { describedBy, FieldError, focusField, optionsOf, SelectField, TextField } from '../components/Field'
 import { ProfileCard } from '../components/ProfileCard'
-import { CHANNEL_LABEL, GOAL_LABEL, PACE_LABEL, RESPONSE_LABEL, ROLE_LABEL } from '../labels'
+import { SignedOutPage } from '../components/SignedOutPage'
+import { CHANNEL_LABEL, GOAL_HINT, GOAL_LABEL, PACE_LABEL, RESPONSE_LABEL, ROLE_LABEL, WEEKLY_HOURS_LABEL, WORK_MODE_LABEL } from '../labels'
+import { migrateLegacySlots, SLOT_KEYS } from '../lib/availability'
 import type { MatchContext } from '../lib/matching'
+import { pathOf, returnPath, returnState } from '../lib/returnTo'
 import { useAppData } from '../state/AppData'
-import { DAYS, SLOTS } from '../types'
-import type { Channel, Goal, Pace, PastWork, ResponseTime, Role, SlotKey, Student, WeeklyHours, WorkMode, Year } from '../types'
+import type { Channel, Goal, Pace, PastWork, ProfileUpdate, ResponseTime, Role, SlotKey, Student, WeeklyHours, WorkMode, Year } from '../types'
 
 // ---------- Form model ----------
 
-const DRAFT_KEY = 'tf.profileDraft'
+// v2: availability uses the 7-day, 5-block keys. A v1 draft (old keys) is migrated once, then removed.
+const DRAFT_KEY = 'tf.profileDraft.v2'
+const LEGACY_DRAFT_KEY = 'tf.profileDraft'
 const MAX_SKILLS = 12
 const MAX_SKILL_LEN = 30
 const MAX_PAST_WORK = 5
@@ -32,7 +38,6 @@ interface ProfileForm {
   name: string
   major: string
   year: Year
-  contactHandle: string
   roles: Role[]
   skills: string[]
   availability: SlotKey[]
@@ -45,23 +50,7 @@ interface ProfileForm {
   pastWork: PastWorkRow[]
 }
 
-type ProfilePatch = Pick<
-  Student,
-  | 'name'
-  | 'major'
-  | 'year'
-  | 'contactHandle'
-  | 'roles'
-  | 'skills'
-  | 'availability'
-  | 'weeklyHours'
-  | 'responseTime'
-  | 'channel'
-  | 'workMode'
-  | 'goal'
-  | 'pace'
-  | 'pastWork'
->
+type ProfilePatch = Omit<ProfileUpdate, 'lookingForTeam'>
 
 type Errors = Record<string, string>
 
@@ -73,32 +62,15 @@ const PACES = Object.keys(PACE_LABEL) as Pace[]
 const RESPONSES = Object.keys(RESPONSE_LABEL) as ResponseTime[]
 const CHANNELS = Object.keys(CHANNEL_LABEL) as Channel[]
 const WORK_MODES: readonly WorkMode[] = ['online', 'in_person']
-const WORK_MODE_LABEL: Record<WorkMode, string> = { online: 'Online', in_person: 'In person' }
-const ALL_SLOTS: readonly SlotKey[] = DAYS.flatMap((d) => SLOTS.map((s): SlotKey => `${d}-${s}`))
-
-const GOAL_HINT: Record<Goal, string> = {
-  pass: 'Do solid work and keep stress low.',
-  strong_grade: 'Aim high and polish the details.',
-  portfolio: 'Build something worth showing employers.',
-}
-
-const HANDLE_PLACEHOLDER: Record<Channel, string> = {
-  discord: 'e.g. alex.builds',
-  slack: 'e.g. @alex',
-  text: 'e.g. (352) 555-0134',
-  email: 'e.g. alex@ufl.edu',
-}
+const ALL_SLOTS: readonly SlotKey[] = SLOT_KEYS
 
 const STEPS: Record<Step, { title: string; sub: string }> = {
   1: { title: 'How you work', sub: 'Teammates check this before they invite you.' },
   2: { title: 'About you', sub: 'The basics, plus work you are proud of.' },
 }
 
-function optionsOf<T extends string>(values: readonly T[], label: (v: T) => string) {
-  return values.map((value) => ({ value, label: label(value) }))
-}
 const YEAR_OPTIONS = optionsOf(YEARS, (y) => y)
-const HOUR_OPTIONS = optionsOf(HOURS, (h) => `${h.replace('-', '–')} hours`)
+const HOUR_OPTIONS = optionsOf(HOURS, (h) => WEEKLY_HOURS_LABEL[h])
 const PACE_OPTIONS = optionsOf(PACES, (p) => PACE_LABEL[p])
 const RESPONSE_OPTIONS = optionsOf(RESPONSES, (r) => RESPONSE_LABEL[r])
 const CHANNEL_OPTIONS = optionsOf(CHANNELS, (c) => CHANNEL_LABEL[c])
@@ -107,7 +79,6 @@ const CHANNEL_OPTIONS = optionsOf(CHANNELS, (c) => CHANNEL_LABEL[c])
 const GUEST: Student = {
   id: 'me',
   name: '',
-  email: '',
   emailVerified: false,
   major: '',
   year: 'Junior',
@@ -116,7 +87,7 @@ const GUEST: Student = {
   availability: [],
   weeklyHours: '6-10',
   responseTime: 'few_hours',
-  channel: 'discord',
+  channel: 'email',
   workMode: ['online'],
   goal: 'strong_grade',
   pace: 'steady',
@@ -136,7 +107,6 @@ function fromStudent(s: Student): ProfileForm {
     name: s.name,
     major: s.major,
     year: s.year,
-    contactHandle: s.contactHandle ?? '',
     roles: [...s.roles],
     skills: [...s.skills],
     availability: [...s.availability],
@@ -162,7 +132,6 @@ function toPatch(f: ProfileForm): ProfilePatch {
     name: f.name.trim(),
     major: f.major.trim(),
     year: f.year,
-    contactHandle: f.contactHandle.trim() || undefined,
     roles: [...f.roles],
     skills: [...f.skills],
     availability: [...f.availability],
@@ -184,12 +153,12 @@ function toPatch(f: ProfileForm): ProfilePatch {
 function validate(step: Step, f: ProfileForm): Errors {
   const e: Errors = {}
   if (step === 1) {
-    if (f.availability.length === 0) e['setup-avail'] = 'Pick at least one time slot.'
+    if (f.availability.length === 0) e['setup-avail'] = "Mark at least one time you're usually free."
     if (f.roles.length === 0) e['setup-roles'] = 'Pick at least one role.'
   } else {
     if (!f.name.trim()) e['setup-name'] = 'Add your name.'
     for (const w of f.pastWork) {
-      if (!w.title.trim() && (w.url.trim() || w.role.trim())) e[`pw-title-${w.id}`] = 'Add a title, or remove this project.'
+      if (!w.title.trim() && (w.url.trim() || w.role.trim())) e[`pw-title-${w.id}`] = 'Add a title, or remove this entry.'
     }
   }
   return e
@@ -201,6 +170,10 @@ interface Draft {
   savedAt: string
   step: Step
   form: ProfileForm
+  /** UF email of the account that saved it (lower case). Old drafts have none. */
+  email?: string
+  /** A v1 draft had evening blocks we could not map (Evening is now two blocks). */
+  droppedEvening: boolean
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
@@ -233,7 +206,6 @@ function sanitize(d: Record<string, unknown>, fb: ProfileForm): ProfileForm {
     name: str(d.name, fb.name),
     major: str(d.major, fb.major),
     year: oneOf(d.year, YEARS, fb.year),
-    contactHandle: str(d.contactHandle, fb.contactHandle),
     roles: listOf(d.roles, ROLES, fb.roles),
     skills,
     availability: listOf(d.availability, ALL_SLOTS, fb.availability),
@@ -249,14 +221,21 @@ function sanitize(d: Record<string, unknown>, fb: ProfileForm): ProfileForm {
 
 function readDraft(fallback: ProfileForm): Draft | null {
   try {
-    const raw = localStorage.getItem(DRAFT_KEY)
+    let raw = localStorage.getItem(DRAFT_KEY)
+    const legacy = !raw
+    if (legacy) raw = localStorage.getItem(LEGACY_DRAFT_KEY)
     if (!raw) return null
     const parsed: unknown = JSON.parse(raw)
     if (!isRecord(parsed) || !isRecord(parsed.form)) return null
+    // Old drafts used "thu-am / thu-pm / thu-eve": keep mornings and afternoons, drop evenings.
+    const migrated = legacy ? migrateLegacySlots(parsed.form.availability) : null
+    const form = sanitize(migrated ? { ...parsed.form, availability: migrated.slots } : parsed.form, fallback)
     return {
       savedAt: typeof parsed.savedAt === 'string' && parsed.savedAt ? parsed.savedAt : 'unknown',
       step: parsed.step === 2 ? 2 : 1,
-      form: sanitize(parsed.form, fallback),
+      form,
+      email: typeof parsed.email === 'string' ? parsed.email.toLowerCase() : undefined,
+      droppedEvening: Boolean(migrated?.droppedEvening),
     }
   } catch {
     return null
@@ -264,10 +243,11 @@ function readDraft(fallback: ProfileForm): Draft | null {
 }
 
 /** Returns the save time, or null if this browser won't let us store it. */
-function writeDraft(step: Step, form: ProfileForm): string | null {
+function writeDraft(step: Step, form: ProfileForm, email?: string): string | null {
   const savedAt = new Date().toISOString()
   try {
-    localStorage.setItem(DRAFT_KEY, JSON.stringify({ savedAt, step, form }))
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({ savedAt, step, form, email: email?.toLowerCase() }))
+    localStorage.removeItem(LEGACY_DRAFT_KEY)
     return savedAt
   } catch {
     return null
@@ -277,17 +257,34 @@ function writeDraft(step: Step, form: ProfileForm): string | null {
 function clearDraft() {
   try {
     localStorage.removeItem(DRAFT_KEY)
+    localStorage.removeItem(LEGACY_DRAFT_KEY)
   } catch {
     // Nothing to clean up if storage is blocked.
   }
 }
 
-function loadInitial(viewer: Student) {
-  const base = fromStudent(viewer)
-  const draft = readDraft(base)
-  if (!draft) return { form: base, step: 1 as Step, restoredAt: null as string | null }
+/**
+ * A new account from sign-up starts empty (availability.md 4.1): only the verified name carries over, and
+ * team chat starts at UF email. The stored profile stays as it is until Finish.
+ */
+function blankFor(viewer: Student): ProfileForm {
+  return fromStudent({ ...GUEST, id: viewer.id, name: viewer.name })
+}
+
+function loadInitial(viewer: Student, fresh: boolean) {
+  const base = fresh ? blankFor(viewer) : fromStudent(viewer)
+  // A new account never picks up a draft, and a draft saved under another UF email belongs to someone else.
+  const saved = fresh ? null : readDraft(base)
+  const draft = saved && (!saved.email || saved.email === viewer.email?.toLowerCase()) ? saved : null
+  if (!draft) return { base, form: base, step: 1 as Step, restoredAt: null as string | null, droppedEvening: false }
   const step1Ok = Object.keys(validate(1, draft.form)).length === 0
-  return { form: draft.form, step: (draft.step === 2 && step1Ok ? 2 : 1) as Step, restoredAt: draft.savedAt as string | null }
+  return {
+    base,
+    form: draft.form,
+    step: (draft.step === 2 && step1Ok && !draft.droppedEvening ? 2 : 1) as Step,
+    restoredAt: draft.savedAt as string | null,
+    droppedEvening: draft.droppedEvening,
+  }
 }
 
 // ---------- Small helpers ----------
@@ -295,8 +292,6 @@ function loadInitial(viewer: Student) {
 function cleanSkill(s: string) {
   return s.trim().replace(/\s+/g, ' ').slice(0, MAX_SKILL_LEN)
 }
-
-const describedBy = (...ids: (string | false | undefined)[]) => ids.filter(Boolean).join(' ') || undefined
 
 const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
@@ -309,20 +304,6 @@ function formatWhen(iso: string) {
     : `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} at ${time}`
 }
 
-/** Moves focus to a field by id. Groups (availability, roles) focus their first button. */
-function focusField(id: string) {
-  requestAnimationFrame(() => {
-    const el = document.getElementById(id)
-    if (!el) return
-    const target = el.matches('input, select, textarea, button')
-      ? el
-      : (el.querySelector<HTMLElement>('button[tabindex="0"]') ?? el.querySelector<HTMLElement>('button'))
-    if (!target) return
-    target.scrollIntoView({ block: 'center', behavior: reducedMotion() ? 'auto' : 'smooth' })
-    target.focus({ preventScroll: true })
-  })
-}
-
 const STEP_VARIANTS: Variants = {
   enter: (dir: number) => ({ opacity: 0, x: 24 * dir }),
   center: { opacity: 1, x: 0 },
@@ -331,14 +312,17 @@ const STEP_VARIANTS: Variants = {
 
 const noop = () => {}
 
+/** Pages Finish can go back to, by name ("Taking you to Open teams…"). */
+const PAGE_NAME: Record<string, string> = { '/find': 'Find teammates', '/team': 'My team', '/teams': 'Open teams', '/projects/new': 'New project' }
+
 // ---------- Page ----------
 
 export function ProfileSetup() {
-  const { loading, error, viewer, matchCtx, updateViewer } = useAppData()
+  const { loading, error, viewer, session, matchCtx, updateViewer } = useAppData()
 
   if (loading) {
     return (
-      <div className="page" aria-busy="true">
+      <div className="page setup-page" aria-busy="true">
         <span className="sr-only" role="status">Loading your profile…</span>
         <div className="skeleton" style={{ height: 18, width: 140 }} />
         <div className="skeleton" style={{ height: 34, width: 260, marginTop: 14 }} />
@@ -351,10 +335,21 @@ export function ProfileSetup() {
     )
   }
 
+  // Real API, signed out: there is no profile to load or save. The mock keeps the form usable (demo-able).
+  if (!USING_MOCK && session === 'signed_out') {
+    return (
+      <SignedOutPage title="Sign in to set up your profile">
+        Sign in with your UF email to edit your profile. New here? Sign up, and you'll come straight back here to fill it in.
+        {readDraft(fromStudent(GUEST)) && ' A draft saved on this device comes back when you sign in with the same UF email.'}
+      </SignedOutPage>
+    )
+  }
+
   return (
     <SetupForm
-      key={viewer?.id ?? 'guest'}
+      key={`${viewer?.id ?? 'guest'}:${viewer?.email ?? ''}`}
       viewer={viewer}
+      signedIn={session === 'signed_in'}
       matchCtx={matchCtx}
       loadFailed={Boolean(error)}
       onSave={updateViewer}
@@ -364,22 +359,36 @@ export function ProfileSetup() {
 
 interface SetupFormProps {
   viewer?: Student
+  /** Signed out (prototype): the form still works, but there is no verified UF email to show. */
+  signedIn: boolean
   matchCtx?: MatchContext
   loadFailed: boolean
-  onSave: (patch: Partial<Student>) => void
+  /** PUT /api/me. Resolving false (or rejecting) means the server didn't save it; void counts as saved.
+   *  Rejecting with a 401 ApiError means the session ended: the message asks them to sign in again. */
+  onSave: (patch: Partial<Student>) => void | Promise<boolean | void>
 }
 
-function SetupForm({ viewer, matchCtx, loadFailed, onSave }: SetupFormProps) {
+function SetupForm({ viewer, signedIn, matchCtx, loadFailed, onSave }: SetupFormProps) {
   const navigate = useNavigate()
-  const [initial] = useState(() => loadInitial(viewer ?? GUEST))
+  const location = useLocation()
+  // Set by sign-up for a new account: the first name to welcome, and the page that asked them to sign up.
+  const welcome = (location.state as { welcome?: string } | null)?.welcome
+  const back = returnPath(location.state)
+  // Finish goes back to that page, else (and never to this page again) to Find teammates.
+  const after = back && pathOf(back) !== '/profile/setup' ? back : '/find'
+  const afterName = PAGE_NAME[pathOf(after)]
+  const [initial] = useState(() => loadInitial(viewer ?? GUEST, Boolean(welcome)))
   const [form, setForm] = useState<ProfileForm>(initial.form)
   const [step, setStep] = useState<Step>(initial.step)
   const [dir, setDir] = useState(1)
   const [tried, setTried] = useState<Record<Step, boolean>>({ 1: false, 2: false })
   const [restoredAt, setRestoredAt] = useState<string | null>(initial.restoredAt)
+  const [droppedEvening, setDroppedEvening] = useState(initial.droppedEvening)
   const [saveNote, setSaveNote] = useState<{ ok: boolean; text: string } | null>(null)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [done, setDone] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<{ text: string; signIn: boolean } | null>(null)
   const [announcement, setAnnouncement] = useState('')
   const headingRef = useRef<HTMLHeadingElement>(null)
   const addRowRef = useRef<HTMLButtonElement>(null)
@@ -394,6 +403,12 @@ function SetupForm({ viewer, matchCtx, loadFailed, onSave }: SetupFormProps) {
     },
     [],
   )
+
+  // Arriving from sign-up (the Verify button is gone) or any hand-off that left focus on <body>: start at the title.
+  const arrivedByLink = location.key !== 'default'
+  useEffect(() => {
+    if (welcome || (arrivedByLink && document.activeElement === document.body)) headingRef.current?.focus({ preventScroll: true })
+  }, [welcome, arrivedByLink])
 
   // After a step change, move focus to the new heading so keyboard and screen reader users start at the top.
   useEffect(() => {
@@ -413,11 +428,12 @@ function SetupForm({ viewer, matchCtx, loadFailed, onSave }: SetupFormProps) {
   const previewCtx = useMemo<MatchContext | undefined>(() => {
     if (!matchCtx) return undefined
     const others = matchCtx.members.filter((m) => m.id !== matchCtx.viewer.id)
-    return others.length > 0 ? { team: matchCtx.team, viewer: others[0], members: others } : matchCtx
+    // "the team", never "you": the reader of the preview is you, not the teammate it imagines.
+    return others.length > 0 ? { team: matchCtx.team, viewer: others[0], members: others, solo: false } : { ...matchCtx, solo: false }
   }, [matchCtx])
 
   const previewStudent: Student | null = previewOpen
-    ? { ...(viewer ?? GUEST), ...toPatch(form), name: form.name.trim() || 'Your name' }
+    ? { ...(viewer ?? GUEST), ...(welcome ? { reviews: [] } : {}), ...toPatch(form), name: form.name.trim() || 'Your name' }
     : null
 
   // ----- field actions -----
@@ -447,7 +463,7 @@ function SetupForm({ viewer, matchCtx, loadFailed, onSave }: SetupFormProps) {
 
   const removeRow = (id: string, index: number) => {
     setForm((f) => ({ ...f, pastWork: f.pastWork.filter((w) => w.id !== id) }))
-    announce(`Removed project ${index + 1}`)
+    announce(`Removed past work ${index + 1}`)
     requestAnimationFrame(() => addRowRef.current?.focus())
   }
 
@@ -473,7 +489,7 @@ function SetupForm({ viewer, matchCtx, loadFailed, onSave }: SetupFormProps) {
   }
 
   const saveDraft = () => {
-    const at = writeDraft(step, form)
+    const at = writeDraft(step, form, viewer?.email)
     window.clearTimeout(saveTimer.current)
     if (at) {
       setSaveNote({ ok: true, text: `Draft saved ${formatWhen(at).replace('today ', '')}` })
@@ -486,16 +502,17 @@ function SetupForm({ viewer, matchCtx, loadFailed, onSave }: SetupFormProps) {
 
   const discardDraft = () => {
     clearDraft()
-    setForm(fromStudent(viewer ?? GUEST))
+    setForm(initial.base)
     setTried({ 1: false, 2: false })
     setRestoredAt(null)
+    setDroppedEvening(false)
     setSaveNote(null)
     if (step !== 1) goBack()
     announce('Draft discarded. Showing your current profile.')
   }
 
-  const finish = () => {
-    if (done) return
+  const finish = async () => {
+    if (done || saving) return
     const e1 = Object.keys(validate(1, form))
     if (e1.length > 0) {
       markTried(1)
@@ -508,17 +525,56 @@ function SetupForm({ viewer, matchCtx, loadFailed, onSave }: SetupFormProps) {
       focusField(e2[0])
       return
     }
-    onSave(toPatch(form))
+    // Success shows (and the draft goes) only once the server has the profile.
+    setSaving(true)
+    setSaveError(null)
+    let ok: boolean
+    let sessionEnded = false
+    try {
+      ok = (await onSave(toPatch(form))) !== false
+    } catch (e) {
+      ok = false
+      sessionEnded = isApiError(e) && e.status === 401
+    }
+    setSaving(false)
+    if (!ok) {
+      // Keep everything as typed, and store it on this device so a reload doesn't lose it either. The draft is
+      // tied to this UF email, so signing in again with it picks the answers back up.
+      const kept = writeDraft(step, form, viewer?.email)
+      if (sessionEnded) {
+        setSaveError({
+          text: `Your session ended, so your profile wasn't saved.${kept ? ' Your answers are kept as a draft on this device.' : ''}`,
+          signIn: true,
+        })
+        return
+      }
+      setSaveError({
+        text: kept
+          ? "Couldn't save your profile. Your answers are still here and saved as a draft on this device. Try Finish again."
+          : "Couldn't save your profile. Your answers are still here. Try Finish again.",
+        signIn: false,
+      })
+      return
+    }
     clearDraft()
     setDone(true)
-    navTimer.current = window.setTimeout(() => navigate('/find', { state: { flash: 'Profile saved' } }), 1400)
+    navTimer.current = window.setTimeout(() => navigate(after), 1400)
   }
 
   // ----- steps -----
 
   const step1 = (
     <>
-      <Card id="card-avail" title="Availability" hint="Click or drag to mark when you're usually free.">
+      <Card id="card-avail" title="Availability" hint="Click or drag to mark when you're usually free. All times are Eastern Time.">
+        {droppedEvening && (
+          <p className="setup-note setup-note-warn">
+            <span className="find-note-icon" aria-hidden="true">!</span>
+            <span>
+              Time blocks changed: Evening is now Early evening <span className="setup-nowrap">(5–8 pm)</span> and Late evening{' '}
+              <span className="setup-nowrap">(8–11 pm)</span>. Mark your evenings again.
+            </span>
+          </p>
+        )}
         <AvailabilityPicker
           id="setup-avail"
           value={form.availability}
@@ -528,10 +584,13 @@ function SetupForm({ viewer, matchCtx, loadFailed, onSave }: SetupFormProps) {
           invalid={Boolean(errors['setup-avail'])}
         />
         <FieldError id="setup-avail-error" message={errors['setup-avail']} />
+        <p className="ap-footnote tiny muted">
+          Night runs past midnight: Fri night means <span className="setup-nowrap">Fri 11 pm–Sat 1 am</span>.
+        </p>
         <SelectField
           id="setup-hours"
-          label="Weekly hours"
-          help="Time you can give this project each week."
+          label="Time per project"
+          help="Hours a week you can usually give one course project. Not the same as your free times above."
           value={form.weeklyHours}
           options={HOUR_OPTIONS}
           onChange={(v) => set('weeklyHours', v)}
@@ -549,7 +608,8 @@ function SetupForm({ viewer, matchCtx, loadFailed, onSave }: SetupFormProps) {
           />
           <SelectField
             id="setup-channel"
-            label="Preferred channel"
+            label="Preferred team chat"
+            help="First contact is always by UF email. This is what you'd like the team to use once it forms."
             value={form.channel}
             options={CHANNEL_OPTIONS}
             onChange={(v) => set('channel', v)}
@@ -569,7 +629,7 @@ function SetupForm({ viewer, matchCtx, loadFailed, onSave }: SetupFormProps) {
         </fieldset>
       </Card>
 
-      <Card id="card-goal" title="Goals & effort" hint="What you want out of this project.">
+      <Card id="card-goal" title="Goals & effort" hint="What you usually want from a course project. Each project sets its own team goal.">
         <fieldset className="setup-fieldset">
           <legend className="field-label">Your goal</legend>
           <div className="radio-cards">
@@ -668,20 +728,26 @@ function SetupForm({ viewer, matchCtx, loadFailed, onSave }: SetupFormProps) {
           onChange={(v) => set('major', v)}
         />
         <SelectField id="setup-year" label="Year" value={form.year} options={YEAR_OPTIONS} onChange={(v) => set('year', v)} />
-        <TextField
-          id="setup-handle"
-          label={`${CHANNEL_LABEL[form.channel]} handle`}
-          placeholder={HANDLE_PLACEHOLDER[form.channel]}
-          value={form.contactHandle}
-          onChange={(v) => set('contactHandle', v)}
-          help="Shared only after both sides accept an invite."
-        />
-        {viewer?.email && (
-          <p className="field-help">
-            Signed in as {viewer.email}
-            {viewer.emailVerified ? ' · ✓ UF email verified' : ''}
-          </p>
-        )}
+        <div className="field">
+          <span id="setup-email-label" className="field-label">UF email</span>
+          {signedIn && viewer?.email ? (
+            <>
+              <div className="setup-readonly" role="group" aria-labelledby="setup-email-label" aria-describedby="setup-email-help">
+                <span className="setup-readonly-value">{viewer.email}</span>
+                {viewer.emailVerified ? (
+                  <span className="chip chip-good">✓ Verified</span>
+                ) : (
+                  <span className="chip">Not verified</span>
+                )}
+              </div>
+              <p id="setup-email-help" className="field-help">Only students on a team with you see it, after an invite or join request is accepted.</p>
+            </>
+          ) : (
+            <p className="setup-readonly small">
+              <span>Not signed in.</span> <Link to="/signup" state={returnState(location)}>Sign up with your UF email</Link>
+            </p>
+          )}
+        </div>
       </Card>
 
       <Card id="card-work" title="Past work" hint="Optional. Class projects, hackathons and side projects all count.">
@@ -700,12 +766,12 @@ function SetupForm({ viewer, matchCtx, loadFailed, onSave }: SetupFormProps) {
                   transition={{ duration: 0.18 }}
                 >
                   <div className="pw-row-head">
-                    <h3>Project {i + 1}</h3>
+                    <h3>Past work {i + 1}</h3>
                     <span className="spacer" />
                     <button
                       type="button"
                       className="btn btn-ghost btn-sm"
-                      aria-label={`Remove project ${i + 1}`}
+                      aria-label={`Remove past work ${i + 1}`}
                       onClick={() => removeRow(w.id, i)}
                     >
                       Remove
@@ -751,7 +817,7 @@ function SetupForm({ viewer, matchCtx, loadFailed, onSave }: SetupFormProps) {
             onClick={addRow}
             disabled={form.pastWork.length >= MAX_PAST_WORK}
           >
-            <span aria-hidden="true">+</span> Add project
+            <span aria-hidden="true">+</span> Add past work
           </button>
           {form.pastWork.length >= MAX_PAST_WORK && <span className="tiny muted">That's the max ({MAX_PAST_WORK}).</span>}
         </div>
@@ -762,9 +828,9 @@ function SetupForm({ viewer, matchCtx, loadFailed, onSave }: SetupFormProps) {
   const meta = STEPS[step]
 
   return (
-    <div className="page">
+    <div className="page setup-page">
       <header className="setup-head">
-        <p className="setup-eyebrow">Profile setup {step}/2</p>
+        <p className="setup-eyebrow">Profile setup · Step {step} of 2</p>
         <ol className="setup-steps" aria-label="Progress">
           {([1, 2] as const).map((s) => (
             <li key={s} className={step >= s ? 'is-reached' : ''} aria-current={step === s ? 'step' : undefined}>
@@ -780,6 +846,11 @@ function SetupForm({ viewer, matchCtx, loadFailed, onSave }: SetupFormProps) {
         <p className="muted">{meta.sub}</p>
       </header>
 
+      {welcome && (
+        <p className="setup-banner" role="status">
+          Email verified. Welcome, {welcome}! Next, tell teammates how you work.
+        </p>
+      )}
       {loadFailed && (
         <p className="setup-banner is-warn" role="status">
           We couldn't load your saved profile. You can still fill this in.
@@ -814,10 +885,10 @@ function SetupForm({ viewer, matchCtx, loadFailed, onSave }: SetupFormProps) {
         </div>
 
         <div className="setup-bar">
-          <button type="button" className="btn btn-ghost" onClick={saveDraft} disabled={done}>
+          <button type="button" className="btn btn-ghost" onClick={saveDraft} disabled={done || saving}>
             Save draft
           </button>
-          <button type="button" className="btn btn-secondary" aria-haspopup="dialog" onClick={() => setPreviewOpen(true)} disabled={done}>
+          <button type="button" className="btn btn-secondary" aria-haspopup="dialog" onClick={() => setPreviewOpen(true)} disabled={done || saving}>
             Preview
           </button>
           <span className="setup-status" role="status">
@@ -838,10 +909,22 @@ function SetupForm({ viewer, matchCtx, loadFailed, onSave }: SetupFormProps) {
           </span>
           <span className="spacer" />
           <span className="setup-alert" role="alert">
-            {tried[step] && errorCount > 0 ? `Fix ${errorCount} thing${errorCount === 1 ? '' : 's'} above to ${step === 1 ? 'continue' : 'finish'}.` : ''}
+            {tried[step] && errorCount > 0
+              ? `Fix ${errorCount} thing${errorCount === 1 ? '' : 's'} above to ${step === 1 ? 'continue' : 'finish'}.`
+              : saveError && (
+                  <>
+                    {saveError.text}
+                    {saveError.signIn && (
+                      <>
+                        {' '}
+                        <Link to="/signin" state={returnState(location)}>Sign in again</Link>
+                      </>
+                    )}
+                  </>
+                )}
           </span>
           {step === 2 && (
-            <button type="button" className="btn btn-secondary" onClick={goBack} disabled={done}>
+            <button type="button" className="btn btn-secondary" onClick={goBack} disabled={done || saving}>
               Back
             </button>
           )}
@@ -850,8 +933,9 @@ function SetupForm({ viewer, matchCtx, loadFailed, onSave }: SetupFormProps) {
               Next <span aria-hidden="true">→</span>
             </button>
           ) : (
-            <button type="button" className="btn btn-primary" onClick={finish} disabled={done}>
-              {done ? 'Saved' : 'Finish'}
+            // aria-disabled while saving keeps focus here if the save fails and the user tries again.
+            <button type="button" className="btn btn-primary" onClick={() => void finish()} disabled={done} aria-disabled={saving || undefined}>
+              {done ? 'Saved' : saving ? 'Saving…' : 'Finish'}
             </button>
           )}
         </div>
@@ -870,7 +954,7 @@ function SetupForm({ viewer, matchCtx, loadFailed, onSave }: SetupFormProps) {
               transition={{ type: 'spring', stiffness: 420, damping: 30 }}
             >
               <span className="setup-toast-icon" aria-hidden="true">✓</span>
-              Profile saved. Taking you to Find teammates…
+              Profile saved. {afterName ? `Taking you to ${afterName}…` : 'Taking you back…'}
             </motion.div>
           )}
         </AnimatePresence>
@@ -892,103 +976,6 @@ function Card({ id, title, hint, children }: { id: string; title: string; hint?:
       </div>
       {children}
     </section>
-  )
-}
-
-function FieldError({ id, message }: { id: string; message?: string }) {
-  if (!message) return null
-  return (
-    <motion.p id={id} className="field-error" initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}>
-      <span className="field-error-icon" aria-hidden="true">!</span>
-      {message}
-    </motion.p>
-  )
-}
-
-interface TextFieldProps {
-  id: string
-  label: string
-  value: string
-  onChange: (v: string) => void
-  help?: string
-  error?: string
-  required?: boolean
-  optional?: boolean
-  placeholder?: string
-  type?: 'text' | 'url'
-  autoComplete?: string
-  maxLength?: number
-}
-
-function TextField({
-  id,
-  label,
-  value,
-  onChange,
-  help,
-  error,
-  required = false,
-  optional = false,
-  placeholder,
-  type = 'text',
-  autoComplete = 'off',
-  maxLength = 80,
-}: TextFieldProps) {
-  return (
-    <div className="field">
-      <label htmlFor={id} className="field-label">
-        {label}
-        {required && <span className="field-req" aria-hidden="true"> *</span>}
-        {optional && <span className="field-opt"> (optional)</span>}
-      </label>
-      <input
-        id={id}
-        className="setup-input"
-        type={type}
-        inputMode={type === 'url' ? 'url' : undefined}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        autoComplete={autoComplete}
-        maxLength={maxLength}
-        aria-required={required || undefined}
-        aria-invalid={error ? true : undefined}
-        aria-describedby={describedBy(help && `${id}-help`, error && `${id}-error`)}
-      />
-      {help && <p id={`${id}-help`} className="field-help">{help}</p>}
-      <FieldError id={`${id}-error`} message={error} />
-    </div>
-  )
-}
-
-interface SelectFieldProps<T extends string> {
-  id: string
-  label: string
-  value: T
-  options: readonly { value: T; label: string }[]
-  onChange: (v: T) => void
-  help?: string
-}
-
-function SelectField<T extends string>({ id, label, value, options, onChange, help }: SelectFieldProps<T>) {
-  return (
-    <div className="field">
-      <label htmlFor={id} className="field-label">{label}</label>
-      <span className="select-wrap">
-        <select
-          id={id}
-          className="setup-select"
-          value={value}
-          onChange={(e) => onChange(e.target.value as T)}
-          aria-describedby={help ? `${id}-help` : undefined}
-        >
-          {options.map((o) => (
-            <option key={o.value} value={o.value}>{o.label}</option>
-          ))}
-        </select>
-      </span>
-      {help && <p id={`${id}-help`} className="field-help">{help}</p>}
-    </div>
   )
 }
 
@@ -1113,7 +1100,7 @@ function PreviewDialog({ open, onClose, student, ctx }: PreviewDialogProps) {
   }, [open])
 
   const missing = student
-    ? [student.roles.length === 0 && 'a role', student.availability.length === 0 && 'time slots'].filter(Boolean)
+    ? [student.roles.length === 0 && 'a role', student.availability.length === 0 && 'free times'].filter(Boolean)
     : []
 
   return (
@@ -1163,14 +1150,15 @@ function PreviewDialog({ open, onClose, student, ctx }: PreviewDialogProps) {
               />
             </div>
           ) : (
-            <p className="small muted">The card preview shows up once your team has loaded.</p>
+            <p className="small muted">The card preview shows up once you have a project.</p>
           )}
           <section className="setup-preview-avail" aria-labelledby="preview-avail-title">
             <h3 id="preview-avail-title">Availability</h3>
-            <AvailabilityGrid theirs={student.availability} />
+            <AvailabilityGrid theirs={student.availability} label="Your free times" />
           </section>
-          {ctx && <p className="tiny muted">Match notes are an example, checked against {ctx.team.project}.</p>}
-          <div className="row">
+          {ctx && <p className="tiny muted">Match checks are an example, checked against {ctx.team.project}.</p>}
+          {/* Sticky, so "Back to editing" stays in view when the dialog scrolls on a short screen. */}
+          <div className="row setup-dialog-foot">
             <span className="spacer" />
             <button type="button" className="btn btn-primary" onClick={onClose}>
               Back to editing

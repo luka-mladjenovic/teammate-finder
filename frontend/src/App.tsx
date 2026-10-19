@@ -1,5 +1,5 @@
 import { AnimatePresence, MotionConfig, motion } from 'motion/react'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { BrowserRouter, HashRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { TopNav } from './components/TopNav'
 import { LoadingScreen } from './fun/LoadingScreen'
@@ -7,26 +7,24 @@ import { toggleRetroTheme, useKonami } from './fun/useKonami'
 import { FindTeammates } from './pages/FindTeammates'
 import { Landing } from './pages/Landing'
 import { MyTeam } from './pages/MyTeam'
+import { NewProject } from './pages/NewProject'
 import { OpenTeams } from './pages/OpenTeams'
 import { NotFound, Study } from './pages/Placeholders'
 import { ProfileDetail } from './pages/ProfileDetail'
 import { ProfileSetup } from './pages/ProfileSetup'
+import { SignUp } from './pages/SignUp'
 import { StyleCompare } from './pages/StyleCompare'
 import { AppDataProvider, useAppData } from './state/AppData'
 
+/** Pages that never wait for data. */
+const NO_WAIT = new Set(['/', '/signup', '/signin'])
+
 function Shell() {
-  const { loading } = useAppData()
+  const { loading, notice, notify } = useAppData()
   const location = useLocation()
   const { pathname } = location
-  const [toast, setToast] = useState<string | null>(null)
 
-  useKonami(() => setToast(toggleRetroTheme() ? 'Retro mode on. Welcome back to 1998.' : 'Retro mode off.'))
-
-  useEffect(() => {
-    if (!toast) return
-    const t = window.setTimeout(() => setToast(null), 3200)
-    return () => window.clearTimeout(t)
-  }, [toast])
+  useKonami(() => notify(toggleRetroTheme() ? 'Retro mode on. Welcome back to 1998.' : 'Retro mode off.'))
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' })
@@ -36,8 +34,7 @@ function Shell() {
     <>
       <TopNav />
       <main>
-        {/* The landing page never waits for data. */}
-        <LoadingScreen done={!loading || pathname === '/'}>
+        <LoadingScreen done={!loading || NO_WAIT.has(pathname)}>
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={pathname}
@@ -51,7 +48,10 @@ function Shell() {
             <Route path="/people/:id" element={<ProfileDetail />} />
             <Route path="/team" element={<MyTeam />} />
             <Route path="/teams" element={<OpenTeams />} />
+            <Route path="/projects/new" element={<NewProject />} />
             <Route path="/profile/setup" element={<ProfileSetup />} />
+            <Route path="/signup" element={<SignUp mode="signup" />} />
+            <Route path="/signin" element={<SignUp mode="signin" />} />
             <Route path="/styles" element={<StyleCompare />} />
             <Route path="/study/*" element={<Study />} />
             <Route path="*" element={<NotFound />} />
@@ -60,17 +60,18 @@ function Shell() {
           </AnimatePresence>
         </LoadingScreen>
       </main>
+      {/* App-wide status messages (AppData.notify): switched project, signed out, Konami, … */}
       <div className="fun-toast-region" role="status" aria-live="polite">
         <AnimatePresence>
-          {toast && (
+          {notice && (
             <motion.div
-              key={toast}
+              key={notice.id}
               className="fun-toast"
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 16 }}
             >
-              {toast}
+              {notice.text}
             </motion.div>
           )}
         </AnimatePresence>
