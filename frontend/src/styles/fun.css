@@ -1,0 +1,251 @@
+/* Delight layer: tilt spotlight, loading screen, Deadline Dash, toast, 404 ghost button.
+   Tokens only; alpha tints are mixed from token colors. */
+
+/* ---------- Tilt + spotlight (useTilt) ---------- */
+.tilt-surface {
+  position: relative;
+  isolation: isolate;
+}
+.tilt-surface::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1; /* above the card background, below its content */
+  border-radius: inherit;
+  pointer-events: none;
+  background: radial-gradient(
+    280px circle at var(--spot-x, 50%) var(--spot-y, 50%),
+    color-mix(in srgb, var(--color-primary) 11%, transparent),
+    transparent 65%
+  );
+  opacity: 0;
+  transition: opacity var(--dur-med) var(--ease-out);
+}
+.tilt-surface[data-tilting]::after { opacity: 1; }
+/* For plain (non-motion) elements: let the CSS variables drive the tilt. */
+.tilt-css {
+  transform: perspective(900px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg));
+  transition: transform 420ms var(--ease-out);
+}
+.tilt-css[data-tilting] { transition-duration: 90ms; }
+@media (prefers-reduced-motion: reduce), (hover: none), (pointer: coarse) {
+  .tilt-css { transform: none; }
+  .tilt-surface::after { display: none; }
+}
+
+/* ---------- Loading screen ---------- */
+.ls-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 15; /* under the sticky top nav (20) so navigation stays usable */
+  display: grid;
+  place-items: center;
+  padding: 96px 16px 48px;
+  background: var(--color-canvas);
+  pointer-events: none; /* never blocks the page, even if the fade-out is slow */
+}
+.ls-center { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; pointer-events: auto; }
+.ls-title { margin: 6px 0 0; font-size: 18px; font-weight: 600; color: var(--color-ink); }
+.ls-hint { margin: 0 0 10px; min-height: 21px; }
+.ls-hint span { display: inline-block; }
+.ls-slow { min-height: 32px; } /* reserve room so the game button doesn't shift the layout */
+
+.ls-stage { position: relative; width: 240px; height: 220px; }
+.ls-card {
+  position: absolute;
+  left: 20px;
+  top: 40px;
+  width: 200px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  border-radius: var(--radius-md);
+  background: var(--color-canvas);
+  border: 1px solid var(--color-hairline);
+  box-shadow: var(--shadow-float);
+}
+.ls-card-text { display: flex; flex-direction: column; min-width: 0; flex: 1; line-height: 1.25; text-align: left; }
+.ls-card-text strong { font-size: 13px; color: var(--color-ink); }
+.ls-card-text span { font-size: 11px; color: var(--color-muted); }
+.ls-card-check {
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--color-on-primary);
+  background: var(--color-primary);
+  transition: transform var(--dur-med) var(--ease-out), opacity var(--dur-med);
+}
+.ls-card-check:empty { transform: scale(0.4); opacity: 0; }
+.ls-slot {
+  position: absolute;
+  left: 14px;
+  top: 128px;
+  width: 212px;
+  height: 64px;
+  border-radius: var(--radius-md);
+  border: 1.5px dashed var(--color-border-strong);
+  background: var(--color-surface-soft);
+  transition: border-color var(--dur-med), background var(--dur-med);
+}
+.ls-slot.is-filled { border-style: solid; border-color: var(--color-primary); background: var(--color-primary-soft); }
+.ls-slot-label {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 198px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-muted);
+}
+.ls-slot-label.is-filled { color: var(--color-primary-active); }
+
+/* ---------- Deadline Dash ---------- */
+.dd-dialog {
+  width: min(700px, calc(100vw - 32px));
+  max-width: none;
+  max-height: calc(100vh - 32px);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: var(--color-canvas);
+  color: var(--color-body);
+  box-shadow: 0 24px 64px color-mix(in srgb, var(--color-ink) 30%, transparent), var(--shadow-float);
+  overflow: auto;
+}
+.dd-dialog::backdrop {
+  background: color-mix(in srgb, var(--color-ink) 45%, transparent);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+}
+.dd-dialog[open] { animation: dd-pop var(--dur-med) var(--ease-out); }
+@keyframes dd-pop {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+}
+
+.dd { display: flex; flex-direction: column; gap: 12px; padding: 20px; }
+.dd-head { display: flex; align-items: center; gap: 10px; }
+.dd-title { font-size: 20px; font-weight: 700; }
+.dd-notice {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--color-good-soft);
+  color: var(--color-good);
+  font-weight: 600;
+}
+.dd-stage {
+  position: relative;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-hairline);
+  overflow: hidden;
+  cursor: pointer;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.dd-stage:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.dd-canvas { display: block; width: 100%; height: auto; aspect-ratio: 640 / 200; }
+.dd-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
+  background: color-mix(in srgb, var(--color-canvas) 72%, transparent);
+}
+.dd-overlay p { margin: 0; }
+.dd-overlay-title { font-size: 18px; font-weight: 700; color: var(--color-ink); }
+.dd-record { margin-left: 8px; }
+.dd-help { margin: 0; }
+.dd-help kbd {
+  display: inline-block;
+  min-width: 22px;
+  padding: 0 6px;
+  border-radius: 6px;
+  border: 1px solid var(--color-hairline);
+  border-bottom-width: 2px;
+  background: var(--color-surface-soft);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-ink);
+  text-align: center;
+}
+.dd-gate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: var(--space-xl) var(--space-lg);
+  text-align: center;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-soft);
+}
+.dd-gate p { margin: 0 0 6px; max-width: 420px; }
+.dd-gate-art { display: flex; align-items: center; gap: 12px; font-size: 28px; }
+.dd-gate-art span {
+  font-size: 11px;
+  font-weight: 800;
+  padding: 6px 8px;
+  border-radius: 4px;
+  color: var(--color-warn);
+  background: var(--color-warn-soft);
+  border: 2px solid var(--color-warn);
+}
+
+/* ---------- Toast (e.g. the Konami easter egg) ---------- */
+.fun-toast-region {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 24px;
+  z-index: 60;
+  display: flex;
+  justify-content: center;
+  padding: 0 16px;
+  pointer-events: none;
+}
+.fun-toast {
+  pointer-events: auto;
+  max-width: 100%;
+  overflow-wrap: anywhere; /* a long unbroken project name must not widen the page */
+  padding: 10px 18px;
+  border-radius: var(--radius-full);
+  background: var(--color-ink);
+  color: var(--color-canvas);
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: var(--shadow-float);
+}
+
+/* ---------- 404 ghost as a button ---------- */
+.fun-ghost-btn {
+  font-size: 48px;
+  line-height: 1;
+  padding: 4px 10px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  cursor: pointer;
+  animation: fun-float 3s ease-in-out infinite;
+  transition: rotate var(--dur-med) var(--ease-out), scale var(--dur-med) var(--ease-out);
+}
+.fun-ghost-btn:hover { rotate: -8deg; scale: 1.12; }
+.fun-ghost-btn:active { scale: 0.95; }
+@keyframes fun-float { 50% { transform: translateY(-8px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .fun-ghost-btn { animation: none; }
+  .fun-ghost-btn:hover { rotate: none; scale: none; }
+  .dd-dialog[open] { animation: none; }
+}

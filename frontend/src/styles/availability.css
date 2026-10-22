@@ -1,0 +1,127 @@
+/* Availability (D1): the read-only AvailabilityGrid, the picker's row labels, the Find teammates filter bar,
+   time notices and the compare tray. Loaded from main.tsx after components.css, so equal-specificity rules
+   here win over the base ones. Tokens only; per-look tweaks sit at the end, scoped like the theme files.
+   The picker's grid and cells live in setup.css. Owner: Dev-2. */
+
+/* ---------- Row labels: block name over its hours ---------- */
+.avail-label, .ap-label { display: flex; flex-direction: column; line-height: 1.2; }
+.avail-label-time, .ap-label-time { font-size: 11px; color: var(--color-muted); white-space: nowrap; }
+.avail-label-name, .ap-label-name { font-size: 12px; color: var(--color-ink); white-space: nowrap; }
+.avail-label-short, .ap-label-short { display: none; }
+.avail-sm .avail-label { font-size: 10px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+/* ---------- Read-only grid ---------- */
+/* Each state has its own edge, not just a pale fill (about 3:1 against the page in the Classic look):
+   free = accent edge, only-the-other-side = dashed grey edge over stripes, busy = hairline. */
+.avail-theirs { border-color: color-mix(in srgb, var(--color-primary) 70%, var(--color-canvas)); }
+.avail-ours {
+  background: repeating-linear-gradient(135deg, var(--color-canvas) 0 3px, var(--color-hairline) 3px 6px);
+  border-style: dashed;
+  /* Muted, not muted-soft: a 1 px dashed edge blurs at 1x zoom, and muted-soft then fell under 3:1. */
+  border-color: var(--color-muted);
+}
+.avail-legend { gap: 6px 16px; }
+
+/* ---------- Find teammates: notices above the results ---------- */
+.setup-note.find-note { margin: var(--space-lg) 0 0; max-width: 860px; font-size: 13px; align-items: center; }
+.find-note-icon {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-full);
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 800;
+  background: var(--color-warn-soft);
+  color: var(--color-warn);
+}
+.find-note a { color: var(--color-ink); font-weight: 600; white-space: nowrap; }
+
+/* Context card: eyebrow, project name with "Change", then course · team · needs. Long names wrap. */
+.context-card { max-width: 100%; min-width: 0; }
+.context-card strong, .context-card .small { overflow-wrap: anywhere; }
+.context-card .context-name { gap: 8px; align-items: flex-start; }
+.context-card .context-name strong { min-width: 0; }
+.context-card .btn-ghost { height: 24px; margin-top: -2px; }
+/* Phones: a 40 px tall hit area for "Change" without changing the card's layout. */
+@media (max-width: 560px) {
+  .context-card .btn-ghost { position: relative; }
+  .context-card .btn-ghost::after { content: ''; position: absolute; inset: -9px -4px; } /* 22 px padding box + 2 × 9 = 40 px */
+}
+
+/* Cards never force a sideways scroll on narrow phones. */
+.cards.find-cards { grid-template-columns: repeat(auto-fill, minmax(min(330px, 100%), 1fr)); }
+.pcard-actions { flex-wrap: wrap; }
+.pcard-full { flex-basis: 100%; margin: 0; text-align: right; overflow-wrap: anywhere; }
+
+/* "Invite sent": a pending invite (real API). Looks settled, not clickable; aria-disabled keeps it focusable. */
+.btn.btn-sent,
+.btn.btn-sent:hover,
+.btn.btn-sent:active { background: var(--color-good-soft); border-color: transparent; color: var(--color-good); cursor: default; transform: none; }
+
+/* ---------- Compare tray ---------- */
+.tray-bar { flex-wrap: wrap; row-gap: 8px; }
+.tray-people { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
+.tray-person { cursor: pointer; transition: border-color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out); }
+.tray-person-x { color: var(--color-muted); font-size: 15px; line-height: 1; }
+.tray-hint { white-space: nowrap; }
+.compare { overflow-x: hidden; overflow-y: auto; }
+.compare-grid { grid-template-columns: 140px repeat(var(--compare-cols, 2), minmax(0, 1fr)); }
+.compare-row { display: contents; }
+.compare-label, .compare-cell { min-width: 0; overflow-wrap: anywhere; }
+.compare-head { min-width: 0; }
+.compare-head strong { overflow-wrap: anywhere; }
+.compare-cell .avail-sm .avail-grid { max-width: 220px; }
+.compare-full { margin: 0; padding: 0 24px 14px; text-align: right; overflow-wrap: anywhere; }
+
+/* ---------- Phones ---------- */
+@media (max-width: 640px) {
+  /* Find filter bar: two rows of two, reset button on the right. */
+  .filterbar.find-filterbar {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+    align-items: center;
+    gap: 2px;
+    padding: 6px;
+    border-radius: var(--radius-lg);
+  }
+  .find-filterbar .seg { padding: 6px 12px; border-radius: var(--radius-md); }
+  .find-filterbar .seg + .seg { border-left: 0; }
+  .find-filterbar .seg select { width: 100%; text-overflow: ellipsis; }
+  .find-filterbar .filter-orb { grid-column: 3; grid-row: 1 / span 2; width: 44px; height: 44px; margin-left: 4px; }
+
+  /* Compare: the numbers stay, the small grids go (they don't fit three across). */
+  .compare-row.compare-avail { display: none; }
+  .compare-grid { grid-template-columns: 76px repeat(var(--compare-cols, 2), minmax(0, 1fr)); padding: 4px 10px 12px; }
+  .compare-head { flex-direction: column; align-items: flex-start; gap: 4px; padding: 8px 4px; }
+  .compare-label, .compare-cell { padding: 8px 4px; }
+  .compare-cell .btn { width: 100%; padding: 0 8px; }
+  .compare-full { padding: 0 14px 12px; }
+  .tray-bar { padding: 10px 12px; }
+  .tray-bar .spacer { display: none; }
+  .tray-people { flex: 1 1 100%; }
+  .tray-bar > .btn-ghost { margin-left: auto; }
+  .tray-person .small { max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+
+@media (max-width: 400px) {
+  /* 360 px phones: a little more room for "Most shared time" and "Portfolio-ready". */
+  .filterbar.find-filterbar { padding: 4px; }
+  .find-filterbar .seg { padding: 6px; }
+  .find-filterbar .filter-orb { width: 36px; height: 36px; margin-left: 2px; font-size: 18px; }
+}
+
+@media (max-width: 480px) {
+  /* Read-only md grids follow the picker's phone labels: short name over the hours. */
+  .avail-md .avail-grid { gap: 4px; }
+  .avail-md .avail-label { padding-right: 2px; }
+  .avail-label-long, .ap-label-long { display: none; }
+  .avail-label-short, .ap-label-short { display: inline; }
+  .avail-label-name, .ap-label-name { font-size: 11px; }
+}
+
+/* ---------- Per-look tweaks ---------- */
+html.theme-glass:not(.theme-retro) .setup-note.find-note { background: var(--color-canvas); border: 1px solid var(--color-hairline); }
+html.theme-soft .setup-note.find-note { border: 1.5px solid var(--color-hairline); }
+.theme-retro .setup-note.find-note { border-radius: 0; }

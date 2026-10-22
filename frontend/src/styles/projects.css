@@ -1,0 +1,236 @@
+/* Projects (D4): the top-bar project switcher and the New project page (/projects/new).
+   Loaded from main.tsx after components.css and before the themes. Tokens only; the per-look tweaks
+   at the end are scoped like the theme files (html.theme-<name>:not(.theme-retro), .theme-retro). */
+
+/* ---------- Switcher: trigger ---------- */
+.ps { position: relative; min-width: 0; }
+.ps-trigger {
+  max-width: 100%;
+  border: 0;
+  background: var(--color-canvas);
+  font: inherit;
+  cursor: pointer;
+  transition: box-shadow var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
+}
+.ps-trigger:hover { box-shadow: 0 0 0 1px var(--color-border-strong), var(--shadow-float); }
+.ps-trigger[aria-expanded='true'] { box-shadow: 0 0 0 1.5px var(--color-primary), var(--shadow-float); }
+.ps-name { min-width: 0; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+.ps-count { flex: none; font-size: 14px; font-variant-numeric: tabular-nums; }
+.team-dots.ps-trigger-dots { flex: none; }
+.ps-chevron { flex: none; margin-left: -2px; color: var(--color-muted); transition: transform var(--dur-med) var(--ease-out); }
+.ps-trigger[aria-expanded='true'] .ps-chevron { transform: rotate(180deg); }
+
+/* No project yet: a pill-style link to /projects/new. */
+.ps-new { gap: 8px; font-size: 14px; font-weight: 600; }
+.ps-new-plus { display: grid; place-items: center; width: 20px; height: 20px; border-radius: var(--radius-full); background: var(--color-primary); color: var(--color-on-primary); font-weight: 700; line-height: 1; }
+.ps-new:hover { box-shadow: 0 0 0 1px var(--color-border-strong), var(--shadow-float); }
+
+/* ---------- Switcher: menu ---------- */
+.ps-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 40;
+  width: max-content;
+  min-width: 300px;
+  max-width: min(380px, calc(100vw - 32px));
+  max-height: var(--ps-max-h, 70vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-hairline-soft);
+  background: var(--color-canvas);
+  color: var(--color-body);
+  box-shadow: var(--shadow-float), 0 18px 40px -16px color-mix(in srgb, var(--color-ink) 28%, transparent);
+  transform-origin: top right;
+}
+.ps-menu[hidden] { display: none; }
+.ps-menu:not([hidden]) { animation: ps-pop var(--dur-fast) var(--ease-out); }
+@keyframes ps-pop { from { opacity: 0; transform: translateY(-6px) scale(0.98); } }
+
+.ps-label { padding: 8px 10px 4px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-muted); cursor: default; }
+.ps-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.ps-item:hover { background: var(--color-surface-soft); }
+.ps-item:focus-visible { outline: 2px solid var(--color-primary); outline-offset: -2px; background: var(--color-surface-soft); }
+.ps-item.is-current { background: var(--color-primary-soft); }
+.ps-check { flex: none; display: grid; place-items: center; width: 18px; color: var(--color-primary); }
+.ps-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+/* Long names wrap to two lines, then end in an ellipsis. */
+.ps-project-name {
+  font-weight: 600;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+.ps-course { font-size: 12px; color: var(--color-muted); line-height: 1.35; }
+.ps-item.is-current .ps-course { color: var(--color-body); }
+.ps-fill { flex: none; display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--color-ink); }
+.team-dots.ps-item-dots { gap: 3px; }
+.team-dots.ps-item-dots i { width: 6px; height: 6px; }
+.ps-sep { height: 1px; margin: 6px 4px; background: var(--color-hairline-soft); }
+.ps-icon { flex: none; display: grid; place-items: center; width: 18px; color: var(--color-muted); }
+.ps-action:hover .ps-icon, .ps-action:focus-visible .ps-icon { color: var(--color-primary); }
+
+/* Up to 1100 px the pill drops the name to keep the page links visible (account.css). Phones: smaller dots,
+   at least 40 px to tap; the menu becomes a panel under the bar with 16 px side gutters, scrolling inside.
+   ProjectSwitcher sets the --ps-* values. */
+@media (max-width: 560px) {
+  .ps-trigger { gap: 7px; min-height: 40px; padding: 8px 10px 8px 12px; }
+  .ps-name { display: none; }
+  .team-dots.ps-trigger-dots { gap: 3px; }
+  .team-dots.ps-trigger-dots i { width: 6px; height: 6px; }
+  .ps-menu {
+    left: var(--ps-left, 0);
+    right: auto;
+    width: var(--ps-width, calc(100vw - 32px));
+    min-width: 0;
+    max-width: none;
+    transform-origin: top center;
+  }
+  .ps-new { min-height: 40px; padding: 7px 12px 7px 8px; }
+  .ps-new-label { font-size: 13px; }
+}
+
+/* ---------- New project ---------- */
+.np-page { max-width: 640px; }
+.np-head { display: flex; flex-direction: column; gap: 6px; margin-bottom: var(--space-lg); }
+.np-head h1:focus { outline: none; }
+.np-head p { margin: 0; }
+/* Course suggestions (your projects' courses) still show while typing; hide Chrome's dropdown arrow. */
+.np-page input[list]::-webkit-calendar-picker-indicator { display: none !important; }
+.card.np-card { display: flex; flex-direction: column; gap: 0; padding: 0; overflow: hidden; }
+.np-section { display: flex; flex-direction: column; gap: 18px; padding: var(--space-lg); min-width: 0; }
+.np-section + .np-section { border-top: 1px solid var(--color-hairline-soft); }
+.np-section-title { font-size: 17px; font-weight: 600; color: var(--color-ink); }
+
+.np-size { display: flex; align-items: flex-start; flex-wrap: wrap; gap: 8px 20px; }
+.np-size .field { flex: 0 1 220px; }
+.np-size-preview { margin: 32px 0 0; display: inline-flex; align-items: center; gap: 10px; min-height: 44px; color: var(--color-ink); font-weight: 500; }
+.team-dots.np-dots { gap: 4px; }
+.team-dots.np-dots i { width: 10px; height: 10px; }
+
+.np-you { margin-left: 2px; padding: 1px 7px; border-radius: var(--radius-full); background: var(--color-surface-strong); color: var(--color-body); font-size: 11px; font-weight: 700; letter-spacing: 0.02em; }
+.role-chip.is-on .np-you { background: var(--color-canvas); color: var(--color-primary-active); }
+.np-summary { margin: 2px 0 0; padding: 10px 12px; border-radius: var(--radius-sm); background: var(--color-surface-soft); color: var(--color-ink); }
+.np-summary:empty { display: none; }
+
+/* Goal and pace: three cards in a row on wider screens, stacked on phones. */
+.radio-cards.np-radio-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.np-radio-row .radio-card { height: 100%; }
+.np-from-profile { margin-top: 8px; }
+
+.np-foot { display: flex; flex-direction: column; gap: 16px; padding: var(--space-lg); border-top: 1px solid var(--color-hairline-soft); background: var(--color-surface-soft); }
+.np-visibility { display: flex; align-items: flex-start; gap: 10px; color: var(--color-body); }
+.np-visibility p { margin: 0; }
+.np-visibility-icon { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: var(--radius-full); background: var(--color-canvas); color: var(--color-primary); box-shadow: 0 0 0 1px var(--color-hairline-soft); }
+.setup-banner.np-failure { margin: 0; }
+.np-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.np-actions .setup-alert { flex-basis: 100%; }
+
+@media (max-width: 640px) {
+  .radio-cards.np-radio-row { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 560px) {
+  .np-section, .np-foot { padding: 18px; }
+  .np-size .field { flex-basis: 100%; }
+  .np-size-preview { margin-top: 0; min-height: 0; }
+  .np-actions { flex-direction: column; align-items: stretch; }
+  .np-actions .btn { width: 100%; height: 44px; }
+}
+
+/* ---------- Looks ---------- */
+/* Aurora: dark surfaces. The bar's backdrop blur can't reach through to the page, so the menu is opaque. */
+html.theme-aurora:not(.theme-retro) .ps-menu {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)), var(--color-canvas);
+  border-color: var(--au-border-hover);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 24px 56px -20px rgba(0, 0, 0, 0.95), 0 0 0 1px rgba(0, 0, 0, 0.4);
+}
+html.theme-aurora:not(.theme-retro) .ps-item:hover { background: rgba(255, 255, 255, 0.06); }
+html.theme-aurora:not(.theme-retro) .ps-item:focus-visible { outline-color: var(--au-focus); outline-offset: -2px; background: rgba(255, 255, 255, 0.06); }
+html.theme-aurora:not(.theme-retro) .ps-item.is-current { background: var(--au-grad-soft); box-shadow: inset 0 0 0 1px rgba(143, 146, 251, 0.3); }
+html.theme-aurora:not(.theme-retro) .ps-check { color: var(--color-primary-active); }
+html.theme-aurora:not(.theme-retro) .ps-sep { background: var(--au-border); }
+html.theme-aurora:not(.theme-retro) .ps-trigger[aria-expanded='true'] { box-shadow: inset 0 0 0 1px rgba(143, 146, 251, 0.6), 0 8px 24px -10px rgba(99, 102, 241, 0.6); }
+html.theme-aurora:not(.theme-retro) .ps-new-plus { background: var(--au-grad); color: #ffffff; }
+html.theme-aurora:not(.theme-retro) .np-section + .np-section,
+html.theme-aurora:not(.theme-retro) .np-foot { border-color: var(--au-border); }
+html.theme-aurora:not(.theme-retro) .np-foot { background: rgba(255, 255, 255, 0.025); }
+html.theme-aurora:not(.theme-retro) .np-summary { background: rgba(255, 255, 255, 0.04); border: 1px solid var(--au-border); }
+html.theme-aurora:not(.theme-retro) .np-visibility-icon { background: rgba(255, 255, 255, 0.05); color: var(--au-focus); box-shadow: inset 0 0 0 1px var(--au-border); }
+html.theme-aurora:not(.theme-retro) .np-you { background: rgba(255, 255, 255, 0.08); color: var(--color-ink); }
+html.theme-aurora:not(.theme-retro) .role-chip.is-on .np-you { background: rgba(0, 0, 0, 0.3); color: var(--color-primary-active); }
+html.theme-aurora:not(.theme-retro) .team-dots.np-dots i { background: rgba(255, 255, 255, 0.18); }
+html.theme-aurora:not(.theme-retro) .team-dots.np-dots i.on { background: linear-gradient(135deg, #8f92fb, #b18cff); box-shadow: 0 0 8px rgba(143, 146, 251, 0.8); }
+
+/* Glass: an opaque white panel (anything translucent under the bar's blur lets the page show through)
+   with the theme's long shadow. */
+html.theme-glass:not(.theme-retro) .ps-menu {
+  background: var(--color-canvas);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow: var(--glass-float);
+  padding: 8px;
+}
+html.theme-glass:not(.theme-retro) .ps-item { border-radius: 12px; }
+html.theme-glass:not(.theme-retro) .ps-item:hover { background: rgba(17, 17, 40, 0.045); }
+html.theme-glass:not(.theme-retro) .ps-item.is-current { background: var(--color-primary-soft); box-shadow: inset 0 0 0 1px rgba(79, 70, 229, 0.16); }
+html.theme-glass:not(.theme-retro) .ps-trigger[aria-expanded='true'] { box-shadow: 0 0 0 1.5px var(--color-primary), 0 8px 18px -8px rgba(79, 70, 229, 0.4); }
+html.theme-glass:not(.theme-retro) .card.np-card { background: var(--glass-fill-strong); }
+html.theme-glass:not(.theme-retro) .np-foot { background: rgba(242, 242, 248, 0.7); }
+html.theme-glass:not(.theme-retro) .np-section-title { font-size: 19px; font-weight: 700; letter-spacing: -0.022em; }
+
+/* Soft: sticker edges and chunky corners. */
+html.theme-soft:not(.theme-retro) .ps-menu {
+  border: 1.5px solid var(--soft-line);
+  box-shadow: 0 4px 0 var(--soft-edge), var(--soft-ambient-lg);
+  padding: 8px;
+}
+html.theme-soft:not(.theme-retro) .ps-item { border-radius: 12px; font-weight: 600; }
+html.theme-soft:not(.theme-retro) .ps-item:hover { background: var(--color-surface-soft); }
+html.theme-soft:not(.theme-retro) .ps-item.is-current { background: var(--soft-lilac); box-shadow: inset 0 0 0 1.5px var(--soft-lilac-line); }
+html.theme-soft:not(.theme-retro) .ps-item.is-current .ps-course { color: var(--soft-lilac-ink); }
+html.theme-soft:not(.theme-retro) .ps-label { font-family: var(--soft-display); letter-spacing: 0.08em; }
+html.theme-soft:not(.theme-retro) .ps-sep { height: 1.5px; background: var(--soft-line); }
+html.theme-soft:not(.theme-retro) .ps-trigger[aria-expanded='true'] { border-color: var(--color-primary); box-shadow: 0 3px 0 var(--soft-primary-edge); }
+html.theme-soft:not(.theme-retro) .ps-new-plus { box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.18); }
+html.theme-soft:not(.theme-retro) .np-section + .np-section,
+html.theme-soft:not(.theme-retro) .np-foot { border-top: 1.5px solid var(--soft-line); }
+html.theme-soft:not(.theme-retro) .np-foot { background: var(--color-surface-soft); }
+html.theme-soft:not(.theme-retro) .np-section-title { font-size: 19px; font-weight: 700; letter-spacing: -0.015em; }
+html.theme-soft:not(.theme-retro) .np-summary { border: 1.5px solid var(--soft-line); border-radius: 14px; }
+html.theme-soft:not(.theme-retro) .np-you { background: var(--soft-butter); color: var(--soft-butter-ink); }
+
+/* Retro (Konami): square bevelled panel like the rest of the egg. */
+.theme-retro .ps-menu { border: 2px solid; border-color: var(--retro-hi) var(--retro-dk) var(--retro-dk) var(--retro-hi); background: var(--retro-paper); box-shadow: 2px 2px 0 0 var(--retro-dk); animation: none; }
+.theme-retro .ps-item { border-radius: 0; }
+.theme-retro .ps-item.is-current { background: var(--color-primary); color: var(--color-on-primary); }
+.theme-retro .ps-item.is-current .ps-course,
+.theme-retro .ps-item.is-current .ps-check,
+.theme-retro .ps-item.is-current .ps-fill { color: var(--color-on-primary); }
+.theme-retro .ps-item.is-current .team-dots i { background: var(--color-primary-disabled); }
+.theme-retro .ps-item.is-current .team-dots i.on { background: var(--color-on-primary); }
+.theme-retro .np-foot { background: var(--color-surface-soft); }

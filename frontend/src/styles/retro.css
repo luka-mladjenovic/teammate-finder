@@ -1,0 +1,177 @@
+/* Easter egg: ↑↑↓↓←→←→BA toggles .theme-retro on <html>.
+   A late-1990s computer-catalog look: beige and grey surfaces, navy and teal accents,
+   square corners, Verdana / Arial type and hard bevels instead of soft shadows. */
+
+html.theme-retro {
+  --color-primary: #1d3f7c;
+  --color-primary-active: #12295a;
+  --color-primary-soft: #d5deec;
+  --color-primary-disabled: #8e9cba;
+  --color-on-primary: #ffffff;
+
+  --color-ink: #000000;
+  --color-body: #1a1a1a;
+  --color-muted: #474540;
+  --color-muted-soft: #6a675f;
+  --color-hairline: #8a8577;
+  --color-hairline-soft: #b4ae9e;
+  --color-border-strong: #5c5850;
+  --color-canvas: #f2eddf;
+  --color-surface-soft: #e2dbc8;
+  --color-surface-strong: #cfc7b1;
+
+  --color-good: #00666a;
+  --color-good-soft: #cde5e1;
+  --color-warn: #8a3a00;
+  --color-warn-soft: #f1dcbb;
+
+  --font-sans: Verdana, Geneva, Tahoma, Arial, sans-serif;
+
+  --radius-sm: 0px;
+  --radius-md: 2px;
+  --radius-lg: 2px;
+  --radius-xl: 2px;
+  --radius-full: 2px;
+
+  --shadow-float: 2px 2px 0 0 #3a3730;
+
+  /* Bevel palette used below */
+  --retro-hi: #ffffff;
+  --retro-face: #d8d1bd;
+  --retro-lo: #8a8577;
+  --retro-dk: #3a3730;
+  --retro-paper: #fbf8ef;
+  --retro-teal: #00666a;
+  --retro-link: #0000cc;
+  --retro-navy-hi: #5d7cb8;
+  --retro-navy-dk: #0a1a3d;
+
+  scrollbar-color: var(--retro-face) var(--color-surface-soft);
+}
+
+.theme-retro body { letter-spacing: 0; }
+
+.theme-retro h1,
+.theme-retro h2 {
+  font-family: 'Arial Black', Arial, Helvetica, sans-serif;
+  font-weight: 900;
+  letter-spacing: 0;
+}
+.theme-retro h3 { font-family: Verdana, Geneva, Arial, sans-serif; font-weight: 700; }
+
+.theme-retro :focus-visible { outline: 2px dotted var(--color-ink); outline-offset: 2px; }
+
+/* Links inside pages look like links again */
+.theme-retro main a:not(.btn):not(.team-pill) { color: var(--retro-link); text-decoration: underline; }
+
+/* ---------- Bevelled buttons ---------- */
+.theme-retro .btn {
+  border-radius: 0;
+  border: 2px solid;
+  border-color: var(--retro-hi) var(--retro-dk) var(--retro-dk) var(--retro-hi);
+  box-shadow: inset -1px -1px 0 var(--retro-lo);
+  background: var(--retro-face);
+  color: var(--color-ink);
+  font-family: Verdana, Geneva, Arial, sans-serif;
+  font-weight: 700;
+  letter-spacing: 0;
+  transition: none;
+}
+.theme-retro .btn:hover { background: var(--color-surface-soft); }
+.theme-retro .btn:active:not(:disabled) {
+  transform: none;
+  translate: 1px 1px;
+  border-color: var(--retro-dk) var(--retro-hi) var(--retro-hi) var(--retro-dk);
+  box-shadow: inset 1px 1px 0 var(--retro-lo);
+}
+.theme-retro .btn-primary {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  border-color: var(--retro-navy-hi) var(--retro-navy-dk) var(--retro-navy-dk) var(--retro-navy-hi);
+  box-shadow: none;
+}
+.theme-retro .btn-primary:hover { background: var(--color-primary-active); }
+.theme-retro .btn-primary:disabled {
+  background: var(--color-primary-disabled);
+  border-color: var(--retro-hi) var(--retro-lo) var(--retro-lo) var(--retro-hi);
+}
+.theme-retro .btn-secondary { background: var(--retro-face); color: var(--color-ink); }
+.theme-retro .btn-ghost {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--retro-link);
+}
+.theme-retro .btn-ghost:hover { background: transparent; }
+.theme-retro .btn-pill { border-radius: 0; }
+
+/* ---------- Bevelled panels ---------- */
+.theme-retro .card,
+.theme-retro .pcard,
+.theme-retro .lp-step,
+.theme-retro .lp-stage,
+.theme-retro .tray,
+.theme-retro .dd-dialog {
+  border-radius: 0;
+  border: 2px solid;
+  border-color: var(--retro-hi) var(--retro-dk) var(--retro-dk) var(--retro-hi);
+  background: var(--retro-paper);
+  box-shadow: none;
+}
+.theme-retro .pcard:hover,
+.theme-retro .lp-step:hover {
+  border-color: var(--retro-hi) var(--retro-dk) var(--retro-dk) var(--retro-hi);
+  box-shadow: var(--shadow-float);
+}
+.theme-retro .pcard-selected { outline: 2px solid var(--color-primary); outline-offset: 1px; }
+
+/* Sunken fields */
+.theme-retro .filterbar,
+.theme-retro .reasons,
+.theme-retro .dd-stage,
+.theme-retro .lp-finding,
+.theme-retro .context-card {
+  border-radius: 0;
+  border: 2px solid;
+  border-color: var(--retro-lo) var(--retro-hi) var(--retro-hi) var(--retro-lo);
+  box-shadow: none;
+}
+.theme-retro .filter-orb { border-radius: 0; }
+.theme-retro select,
+.theme-retro input,
+.theme-retro textarea { border-radius: 0; font-family: var(--font-sans); }
+
+.theme-retro .chip {
+  border-radius: 0;
+  border: 1px solid var(--retro-lo);
+  background: var(--retro-face);
+  color: var(--color-ink);
+}
+.theme-retro .chip-primary {
+  background: var(--color-primary);
+  border-color: var(--retro-navy-dk);
+  color: var(--color-on-primary);
+}
+.theme-retro .avatar { box-shadow: 1px 1px 0 var(--retro-dk); }
+
+/* ---------- Top nav: a grey toolbar with a navy-to-teal title strip ---------- */
+.theme-retro .topnav {
+  background: var(--retro-face);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  border-bottom: 2px solid var(--retro-dk);
+  box-shadow: inset 0 1px 0 var(--retro-hi);
+}
+.theme-retro .topnav::before {
+  content: '';
+  display: block;
+  height: 6px;
+  background: linear-gradient(90deg, var(--color-primary), var(--retro-teal));
+}
+.theme-retro .brand { font-family: 'Arial Black', Arial, sans-serif; font-weight: 900; }
+.theme-retro .brand-mark i { border-radius: 0; }
+.theme-retro .topnav-links a { border-radius: 0; color: var(--color-ink); }
+.theme-retro .topnav-links a.active { background: var(--color-primary); color: var(--color-on-primary); }
+.theme-retro .team-pill { border-radius: 0; background: var(--retro-paper); }
+
+.theme-retro .skeleton { border-radius: 0; }
