@@ -4,19 +4,23 @@ from app.models import Student
 app = create_app()
 
 with app.app_context():
-    existing = Student.query.filter_by(email="you@ufl.edu").first()
-    if existing:
-        print("Test student already exists:", existing.id)
-    else:
-        student = Student(
-            email="you@ufl.edu",
-            name="Test Student",
-            email_verified=True,
-            major="Computer Science",
-            year="Senior",
-            roles=["backend"],
-            looking_for_team=True,
-        )
-        db.session.add(student)
-        db.session.commit()
-        print("Created test student:", student.id)
+    for email, name in [
+        ("you@ufl.edu", "Test Student"),
+        ("existing@ufl.edu", "Existing Student"),
+    ]:
+        existing = Student.query.filter_by(email=email).first()
+        if existing:
+            print(f"Already exists: {email} -> {existing.id}")
+        else:
+            student = Student(
+                email=email,
+                name=name,
+                email_verified=True,
+                major="Computer Science",
+                year="Senior",
+                roles=["backend"],
+                looking_for_team=True,
+            )
+            db.session.add(student)
+            db.session.commit()
+            print(f"Created: {email} -> {student.id}")
