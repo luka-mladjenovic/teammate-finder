@@ -1,5 +1,20 @@
 from app import db
 import uuid
+import secrets
+import hashlib
+from datetime import datetime, timedelta
+
+def hash_code(code: str) -> str:
+    return hashlib.sha256(code.encode()).hexdigest()
+
+class Challenge(db.Model):
+    id = db.Column(db.String, primary_key=True, default=gen_id)
+    email = db.Column(db.String, nullable=False)
+    code_hash = db.Column(db.String, nullable=False)
+    attempts_left = db.Column(db.Integer, default=5)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    resend_after = db.Column(db.DateTime, nullable=False)
+    used = db.Column(db.Boolean, default=False)
 
 def gen_id():
     return str(uuid.uuid4())
