@@ -7,6 +7,9 @@ from datetime import datetime, timedelta
 def hash_code(code: str) -> str:
     return hashlib.sha256(code.encode()).hexdigest()
 
+def gen_id():
+    return str(uuid.uuid4())
+
 class Challenge(db.Model):
     id = db.Column(db.String, primary_key=True, default=gen_id)
     email = db.Column(db.String, nullable=False)
@@ -15,9 +18,6 @@ class Challenge(db.Model):
     expires_at = db.Column(db.DateTime, nullable=False)
     resend_after = db.Column(db.DateTime, nullable=False)
     used = db.Column(db.Boolean, default=False)
-
-def gen_id():
-    return str(uuid.uuid4())
 
 class Student(db.Model):
     id = db.Column(db.String, primary_key=True, default=gen_id)
