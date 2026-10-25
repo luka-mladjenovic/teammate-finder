@@ -11,26 +11,11 @@ EMAIL_PATTERN = re.compile(r"^[a-z0-9._%+-]{1,64}@ufl\.edu$")
 
 main = Blueprint("main", __name__)
 
-# Step 1 only: no real sign-in yet, so we read whatever student id is in the
-# session cookie. Use this to log in by hand while testing:
-#   POST /api/dev/signin  {"studentId": "<id>"}
-# This route disappears once Step 2 builds real auth.
-
 def current_student():
     student_id = session.get("student_id")
     if not student_id:
         return None
     return Student.query.get(student_id)
-
-@main.route("/api/dev/signin", methods=["POST"])
-def dev_signin():
-    from flask import request
-    student_id = request.get_json().get("studentId")
-    student = Student.query.get(student_id)
-    if not student:
-        return jsonify({"error": "not_found", "message": "No student with that id"}), 404
-    session["student_id"] = student_id
-    return jsonify(student.to_dict(include_email=True))
 
 @main.route("/api/me", methods=["GET"])
 def get_me():
