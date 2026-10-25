@@ -1,13 +1,14 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
+import os
 
 db = SQLAlchemy()
 
 def create_app():
     app = Flask(__name__)
     app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///app.db"
-    app.config["SECRET_KEY"] = "dev-secret-change-later"  # TODO: needed for sessions, implement later
+    app.config["SECRET_KEY"] = os.environ["SECRET_KEY"]
     app.config["SESSION_COOKIE_SECURE"] = False  # localhost http, per the handoff doc
 
     db.init_app(app)
