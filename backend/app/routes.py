@@ -163,3 +163,46 @@ def request_email_code():
     response["demoCode"] = code
 
     return jsonify(response), 200
+
+@main.route("/api/auth/verify", methods=["POST"])
+def verify_email_code():
+    data = request.get_json() or {}
+    challenge_id = data.get("challengeId")
+    code = (data.get("code") or "").strip()
+
+    challenge = Challenge.query.get(challenge_id)
+    if not challenge:
+        return jsonify({"error": "challenge_not_found"}), 404
+
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+
+    if challenge.used or now > challenge.expires_at:
+        return jsonify({"error": "code_expired"}), 410
+
+    if challenge.attempts_left <= 0:
+        return jsonify({"error": "too_many_attempts"}), 429
+
+    if hash_code(code) != challenge.code_hash:
+        challenge.attempts_left -= 1
+        db.session.commit()
+        return jsonify({"error": "invalid_code", "attemptsLeft": challenge.attempts_left}), 400
+
+    # code is correct: mark challenge used so it can't be replayed
+    challenge.used = True
+
+    student = Student.query.filter_by(email=challenge.email).first()
+    is_new_account = student is None
+    if is_new_account:
+        student = Student(email=challenge.email, email_verified=True)
+        db.session.add(student)
+    else:
+        student.email_verified = True
+
+    db.session.commit()
+
+    session["student_id"] = student.id
+
+    return jsonify({
+        "me": student.to_dict(include_email=True),
+        "isNewAccount": is_new_account,
+    }), 200
