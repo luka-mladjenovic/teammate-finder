@@ -7,7 +7,7 @@ db = SQLAlchemy()
 def create_app():
     app = Flask(__name__)
     app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///app.db"
-    app.config["SECRET_KEY"] = "dev-secret-change-later"  # needed for sessions
+    app.config["SECRET_KEY"] = "dev-secret-change-later"  # TODO: needed for sessions, implement later
     app.config["SESSION_COOKIE_SECURE"] = False  # localhost http, per the handoff doc
 
     db.init_app(app)
