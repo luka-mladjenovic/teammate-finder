@@ -1,5 +1,13 @@
 from flask import Blueprint, jsonify, session
 from app.models import Student, Team, JoinRequest
+import re
+import random
+from datetime import datetime, timedelta, timezone
+from flask import request
+from app.models import Challenge, hash_code
+from app import db
+
+EMAIL_PATTERN = re.compile(r"^[a-z0-9._%+-]{1,64}@ufl\.edu$")
 
 main = Blueprint("main", __name__)
 
@@ -102,3 +110,56 @@ def get_my_requests():
         return jsonify({"error": "not_signed_in"}), 401
     requests_ = JoinRequest.query.filter_by(student_id=me.id).all()
     return jsonify([r.to_dict() for r in requests_])
+
+@main.route("/api/auth/email-code", methods=["POST"])
+def request_email_code():
+    data = request.get_json() or {}
+    email = (data.get("email") or "").strip().lower()
+
+    if not email:
+        return jsonify({"error": "invalid_email", "message": "Email is required."}), 422
+    if not EMAIL_PATTERN.match(email):
+        return jsonify({"error": "not_ufl_email", "message": "Use your @ufl.edu email."}), 422
+
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+
+    # rate limit: at most 1 code per 30s, 5 per hour, for this email
+    recent = Challenge.query.filter(
+        Challenge.email == email,
+        Challenge.expires_at > now - timedelta(minutes=10)  # roughly "recent" challenges
+    ).order_by(Challenge.expires_at.desc()).all()
+
+    last = recent[0] if recent else None
+    if last and last.resend_after > now:
+        seconds_left = int((last.resend_after - now).total_seconds())
+        return jsonify({"error": "rate_limited", "message": "Please wait before requesting another code.", "retryAfter": seconds_left}), 429
+
+    hour_ago = now - timedelta(hours=1)
+    recent_hour_count = Challenge.query.filter(Challenge.email == email, Challenge.expires_at > hour_ago).count()
+    if recent_hour_count >= 5:
+        return jsonify({"error": "rate_limited", "message": "Too many requests. Try again later.", "retryAfter": 3600}), 429
+
+    # generate and store the code
+    code = f"{random.randint(0, 999999):06d}"
+    challenge = Challenge(
+        email=email,
+        code_hash=hash_code(code),
+        attempts_left=5,
+        expires_at=now + timedelta(minutes=10),
+        resend_after=now + timedelta(seconds=30),
+    )
+    db.session.add(challenge)
+    db.session.commit()
+
+    response = {
+        "challengeId": challenge.id,
+        "email": email,
+        "expiresAt": challenge.expires_at.isoformat() + "Z",
+        "resendAfter": challenge.resend_after.isoformat() + "Z",
+    }
+
+    # DEMO ONLY: show the code since we have no real email sending yet.
+    # This must never run once real email is wired up.
+    response["demoCode"] = code
+
+    return jsonify(response), 200
