@@ -191,3 +191,8 @@ def verify_email_code():
         "me": student.to_dict(include_email=True),
         "isNewAccount": is_new_account,
     }), 200
+
+@main.route("/api/auth/signout", methods=["POST"])
+def signout():
+    session.pop("student_id", None)
+    return "", 204
