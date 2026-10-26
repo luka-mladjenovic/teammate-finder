@@ -10,6 +10,13 @@ from app import db
 EMAIL_PATTERN = re.compile(r"^[a-z0-9._%+-]{1,64}@ufl\.edu$")
 
 main = Blueprint("main", __name__)
+VALID_YEARS = {"Freshman", "Sophomore", "Junior", "Senior", "Graduate"}
+VALID_MAJORS = {
+    "Computer Science",
+    "Computer Engineering",
+    "Computer Science Minor",
+    "Computer Engineering Minor"
+}
 
 def current_student():
     student_id = session.get("student_id")
@@ -196,3 +203,39 @@ def verify_email_code():
 def signout():
     session.pop("student_id", None)
     return "", 204
+
+@main.route("/api/me", methods=["PUT"])
+def update_me():
+    me = current_student()
+    if not me:
+        return jsonify({"error": "not_signed_in"}), 401
+
+    data = request.get_json() or {}
+    errors = {}
+
+    if "name" in data:
+        name = (data["name"] or "").strip()
+        if not name:
+            errors["name"] = "Name cannot be empty."
+        else:
+            me.name = name
+
+        if "major" in data:
+        major = data["major"]
+        if major not in VALID_MAJORS:
+            errors["major"] = f"Major must be one of: {', '.join(sorted(VALID_MAJORS))}."
+        else:
+            me.major = major
+
+    if "year" in data:
+        year = data["year"]
+        if year not in VALID_YEARS:
+            errors["year"] = f"Year must be one of: {', '.join(sorted(VALID_YEARS))}."
+        else:
+            me.year = year
+
+    if errors:
+        return jsonify({"error": "validation_failed", "fields": errors}), 422
+
+    db.session.commit()
+    return jsonify(me.to_dict(include_email=True)), 200
