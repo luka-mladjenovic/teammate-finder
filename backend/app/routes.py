@@ -1,10 +1,8 @@
-from flask import Blueprint, jsonify, session
-from app.models import Student, Team, JoinRequest
+from flask import Blueprint, jsonify, session , request
+from app.models import Student, Team, JoinRequest, Challenge, hash_code, Membership, Invite
 import re
 import random
 from datetime import datetime, timedelta, timezone
-from flask import request
-from app.models import Challenge, hash_code, Membership
 from app import db
 
 EMAIL_PATTERN = re.compile(r"^[a-z0-9._%+-]{1,64}@ufl\.edu$")
@@ -436,3 +434,36 @@ def create_project():
     db.session.commit()
 
     return jsonify(team.to_dict()), 201
+
+@main.route("/api/projects/<project_id>/invites", methods=["POST"])
+def create_invite(project_id):
+    me = current_student()
+    if not me:
+        return jsonify({"error": "not_signed_in"}), 401
+
+    team = Team.query.get(project_id)
+    if not team or me.id not in team.member_ids:
+        return jsonify({"error": "not_found"}), 404
+
+    data = request.get_json() or {}
+    student_id = data.get("studentId")
+    student = Student.query.get(student_id)
+    if not student:
+        return jsonify({"error": "not_found"}), 404
+
+    if student_id in team.member_ids:
+        return jsonify({"error": "already_member"}), 409
+
+    if len(team.member_ids) >= team.size:
+        return jsonify({"error": "team_full"}), 409
+
+    existing_invite = Invite.query.filter_by(project_id=project_id, student_id=student_id, status="pending").first()
+    if existing_invite:
+        return jsonify({"error": "already_invited"}), 409
+
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    invite = Invite(project_id=project_id, student_id=student_id, status="pending", created_at=now.isoformat() + "Z")
+    db.session.add(invite)
+    db.session.commit()
+
+    return jsonify(invite.to_dict()), 201
