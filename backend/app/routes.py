@@ -4,12 +4,11 @@ import re
 import random
 from datetime import datetime, timedelta, timezone
 from flask import request
-from app.models import Challenge, hash_code
+from app.models import Challenge, hash_code, Membership
 from app import db
 
 EMAIL_PATTERN = re.compile(r"^[a-z0-9._%+-]{1,64}@ufl\.edu$")
 
-main = Blueprint("main", __name__)
 VALID_YEARS = {"Freshman", "Sophomore", "Junior", "Senior", "Graduate"}
 VALID_MAJORS = {
     "Computer Science",
@@ -29,6 +28,16 @@ SLOT_KEY_PATTERN = re.compile(r"^(mon|tue|wed|thu|fri|sat|sun)-(morning|afternoo
 
 DAY_ORDER = {"mon": 0, "tue": 1, "wed": 2, "thu": 3, "fri": 4, "sat": 5, "sun": 6}
 BLOCK_ORDER = {"morning": 0, "afternoon": 1, "early_evening": 2, "late_evening": 3, "night": 4}
+
+MIN_TEAM_SIZE = 2
+MAX_TEAM_SIZE = 8
+MAX_PROJECTS = 10
+
+main = Blueprint("main", __name__)
+
+def clean_text(s: str) -> str:
+    # trims and collapses inner runs of spaces, per the spec
+    return re.sub(r"\s+", " ", (s or "").strip())
 
 def slot_sort_key(slot: str):
     day, block = slot.split("-", 1)
@@ -68,7 +77,7 @@ def get_projects():
     me = current_student()
     if not me:
         return jsonify({"error": "not_signed_in"}), 401
-    my_teams = Team.query.filter(Team.member_ids.contains(me.id)).all()
+    my_teams = Team.query.join(Membership).filter(Membership.student_id == me.id).order_by(Membership.joined_at).all()
     return jsonify([t.to_dict() for t in my_teams])
 
 @main.route("/api/team-posts", methods=["GET"])
@@ -77,19 +86,18 @@ def get_team_posts():
     if not me:
         return jsonify({"error": "not_signed_in"}), 401
 
-    open_teams = Team.query.all()
+    my_team_ids = {t.id for t in Team.query.join(Membership).filter(Membership.student_id == me.id).all()}
+    all_teams = Team.query.filter(~Team.id.in_(my_team_ids)).all() if my_team_ids else Team.query.all()
+
     posts = []
-    for t in open_teams:
-        if me.id in t.member_ids:
-            continue  # never show a team you're already in
+    for t in all_teams:
         if len(t.member_ids) >= t.size:
-            continue  # no open spots
+            continue
 
         members = Student.query.filter(Student.id.in_(t.member_ids)).all()
         covered_roles = {r for m in members for r in m.roles}
         roles_needed = [r for r in t.required_roles if r not in covered_roles]
 
-        # shared availability: blocks every current member is free
         if members:
             shared = set(members[0].availability)
             for m in members[1:]:
@@ -363,3 +371,68 @@ def update_me():
     
     db.session.commit()
     return jsonify(me.to_dict(include_email=True)), 200
+
+@main.route("/api/projects", methods=["POST"])
+def create_project():
+    me = current_student()
+    if not me:
+        return jsonify({"error": "not_signed_in"}), 401
+
+    data = request.get_json() or {}
+    errors = {}
+
+    course = clean_text(data.get("course", ""))
+    project = clean_text(data.get("project", ""))
+    size = data.get("size")
+    required_roles = data.get("requiredRoles", [])
+    goal = data.get("goal")
+    pace = data.get("pace")
+
+    if not (1 <= len(course) <= 60):
+        errors["course"] = "Course must be 1-60 characters."
+    if not (2 <= len(project) <= 60):
+        errors["project"] = "Project name must be 2-60 characters."
+    if not isinstance(size, int) or not (MIN_TEAM_SIZE <= size <= MAX_TEAM_SIZE):
+        errors["size"] = f"Size must be a number between {MIN_TEAM_SIZE} and {MAX_TEAM_SIZE}."
+    if not isinstance(required_roles, list) or len(required_roles) == 0 or not all(r in VALID_ROLES for r in required_roles):
+        errors["requiredRoles"] = f"At least one role, each one of: {', '.join(sorted(VALID_ROLES))}."
+    if goal not in VALID_GOALS:
+        errors["goal"] = f"Must be one of: {', '.join(sorted(VALID_GOALS))}."
+    if pace not in VALID_PACES:
+        errors["pace"] = f"Must be one of: {', '.join(sorted(VALID_PACES))}."
+
+    if errors:
+        return jsonify({"error": "validation", "fields": errors}), 400
+
+    my_team_count = Membership.query.filter_by(student_id=me.id).count()
+    if my_team_count >= MAX_PROJECTS:
+        return jsonify({"error": "project_limit"}), 409
+
+    my_teams = Team.query.join(Membership).filter(Membership.student_id == me.id).all()
+    for t in my_teams:
+        if t.project.lower() == project.lower() and t.course.lower() == course.lower():
+            return jsonify({
+                "error": "duplicate_name",
+                "message": f'You already have "{project}" in {course}.',
+                "fields": {"project": "You already have a project with this name in this course."},
+            }), 409
+
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    team = Team(
+        project=project,
+        course=course,
+        size=size,
+        owner_id=me.id,
+        required_roles=required_roles,
+        goal=goal,
+        pace=pace,
+        created_at=now.isoformat() + "Z",
+    )
+    db.session.add(team)
+    db.session.flush()  # generates team.id before we use it below
+
+    membership = Membership(team_id=team.id, student_id=me.id, joined_at=now.isoformat() + "Z")
+    db.session.add(membership)
+    db.session.commit()
+
+    return jsonify(team.to_dict()), 201
