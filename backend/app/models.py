@@ -68,12 +68,16 @@ class Team(db.Model):
     course = db.Column(db.String, nullable=False)
     size = db.Column(db.Integer, nullable=False)
     owner_id = db.Column(db.String, db.ForeignKey("student.id"), nullable=False)
-    member_ids = db.Column(db.JSON, default=list)  # owner first, join order
     required_roles = db.Column(db.JSON, default=list)
     goal = db.Column(db.String, nullable=False)
     pace = db.Column(db.String, nullable=False)
     created_at = db.Column(db.String, nullable=False)
+    memberships = db.relationship("Membership", order_by="Membership.joined_at", cascade="all, delete-orphan")
 
+    @property
+    def member_ids(self):
+        return [m.student_id for m in self.memberships]
+    
     def to_dict(self):
         return {
             "id": self.id,
@@ -109,3 +113,11 @@ class JoinRequest(db.Model):
             "status": self.status,
             "createdAt": self.created_at,
         }
+
+class Membership(db.Model):
+    id = db.Column(db.String, primary_key=True, default=gen_id)
+    team_id = db.Column(db.String, db.ForeignKey("team.id"), nullable=False)
+    student_id = db.Column(db.String, db.ForeignKey("student.id"), nullable=False)
+    joined_at = db.Column(db.String, nullable=False)  # ISO string, so we can order by it
+
+    __table_args__ = (db.UniqueConstraint("team_id", "student_id"),)
