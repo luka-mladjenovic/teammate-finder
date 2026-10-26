@@ -275,7 +275,7 @@ def update_me():
             me.pace = val
 
     if errors:
-        return jsonify({"error": "validation_failed", "fields": errors}), 422
-
+        return jsonify({"error": "validation", "fields": errors}), 400
+    
     db.session.commit()
     return jsonify(me.to_dict(include_email=True)), 200
