@@ -467,3 +467,28 @@ def create_invite(project_id):
     db.session.commit()
 
     return jsonify(invite.to_dict()), 201
+
+@main.route("/api/projects/<project_id>/members/<student_id>", methods=["DELETE"])
+def remove_member(project_id, student_id):
+    me = current_student()
+    if not me:
+        return jsonify({"error": "not_signed_in"}), 401
+
+    team = Team.query.get(project_id)
+    if not team or me.id not in team.member_ids:
+        return jsonify({"error": "not_found"}), 404
+
+    if team.owner_id != me.id:
+        return jsonify({"error": "not_owner"}), 403
+
+    if student_id == team.owner_id:
+        return jsonify({"error": "cannot_remove_owner"}), 400
+
+    membership = Membership.query.filter_by(team_id=project_id, student_id=student_id).first()
+    if not membership:
+        return jsonify({"error": "not_found"}), 404
+
+    db.session.delete(membership)
+    db.session.commit()
+
+    return "", 204
