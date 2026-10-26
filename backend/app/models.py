@@ -99,6 +99,15 @@ class Invite(db.Model):
     status = db.Column(db.String, default="pending")  # pending | accepted | declined
     created_at = db.Column(db.String, nullable=False)
 
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "projectId": self.project_id,
+            "studentId": self.student_id,
+            "status": self.status,
+            "createdAt": self.created_at,
+        }
+
 class JoinRequest(db.Model):
     id = db.Column(db.String, primary_key=True, default=gen_id)
     post_id = db.Column(db.String, nullable=False)  # a Team's id
