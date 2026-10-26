@@ -221,11 +221,11 @@ def update_me():
             me.name = name
 
         if "major" in data:
-        major = data["major"]
-        if major not in VALID_MAJORS:
-            errors["major"] = f"Major must be one of: {', '.join(sorted(VALID_MAJORS))}."
-        else:
-            me.major = major
+            major = data["major"]
+            if major not in VALID_MAJORS:
+                errors["major"] = f"Major must be one of: {', '.join(sorted(VALID_MAJORS))}."
+            else:
+                me.major = major
 
     if "year" in data:
         year = data["year"]
