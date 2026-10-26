@@ -22,6 +22,17 @@ VALID_RESPONSE_TIMES = {"within_1h", "few_hours", "same_day", "next_day"}
 VALID_CHANNELS = {"email", "discord", "slack", "text"}
 VALID_GOALS = {"pass", "strong_grade", "portfolio"}
 VALID_PACES = {"early", "steady", "deadline"}
+VALID_ROLES = {"lead", "frontend", "backend", "design", "docs", "testing"}
+VALID_WORK_MODES = {"online", "in_person"}
+
+SLOT_KEY_PATTERN = re.compile(r"^(mon|tue|wed|thu|fri|sat|sun)-(morning|afternoon|early_evening|late_evening|night)$")
+
+DAY_ORDER = {"mon": 0, "tue": 1, "wed": 2, "thu": 3, "fri": 4, "sat": 5, "sun": 6}
+BLOCK_ORDER = {"morning": 0, "afternoon": 1, "early_evening": 2, "late_evening": 3, "night": 4}
+
+def slot_sort_key(slot: str):
+    day, block = slot.split("-", 1)
+    return (DAY_ORDER[day], BLOCK_ORDER[block])
 
 def current_student():
     student_id = session.get("student_id")
@@ -273,6 +284,79 @@ def update_me():
             errors["pace"] = f"Must be one of: {', '.join(sorted(VALID_PACES))}."
         else:
             me.pace = val
+
+    if "roles" in data:
+        roles = data["roles"]
+        if not isinstance(roles, list) or not all(r in VALID_ROLES for r in roles):
+            errors["roles"] = f"Each role must be one of: {', '.join(sorted(VALID_ROLES))}."
+        else:
+            me.roles = roles
+
+    if "skills" in data:
+        skills = data["skills"]
+        if not isinstance(skills, list):
+            errors["skills"] = "Skills must be a list."
+        elif len(skills) > 12:
+            errors["skills"] = "At most 12 skills allowed."
+        elif not all(isinstance(s, str) and 1 <= len(s.strip()) <= 30 for s in skills):
+            errors["skills"] = "Each skill must be 1-30 characters."
+        else:
+            me.skills = [s.strip() for s in skills]
+
+    if "workMode" in data:
+        work_mode = data["workMode"]
+        if not isinstance(work_mode, list) or not all(w in VALID_WORK_MODES for w in work_mode):
+            errors["workMode"] = f"Each value must be one of: {', '.join(sorted(VALID_WORK_MODES))}."
+        else:
+            me.work_mode = work_mode
+
+    if "pastWork" in data:
+        past_work = data["pastWork"]
+        if not isinstance(past_work, list) or len(past_work) > 5:
+            errors["pastWork"] = "At most 5 past work items allowed."
+        else:
+            valid = True
+            for item in past_work:
+                if not isinstance(item, dict):
+                    valid = False
+                    break
+                title = item.get("title", "")
+                role = item.get("role", "")
+                url = item.get("url")
+                if not (1 <= len(str(title).strip()) <= 80):
+                    valid = False
+                    break
+                if not (0 <= len(str(role).strip()) <= 80):
+                    valid = False
+                    break
+                if url is not None and len(str(url)) > 300:
+                    valid = False
+                    break
+            if not valid:
+                errors["pastWork"] = "Each item needs a title (1-80 chars), an optional role (max 80 chars), and an optional url (max 300 chars)."
+            else:
+                me.past_work = past_work
+
+    if "availability" in data:
+        availability = data["availability"]
+        if not isinstance(availability, list) or not all(isinstance(a, str) for a in availability):
+            errors["availability"] = "Availability must be a list of time block keys."
+        else:
+            invalid = [a for a in availability if not SLOT_KEY_PATTERN.match(a)]
+            if invalid:
+                return jsonify({
+                    "error": "invalid_time_block",
+                    "message": f"Unknown time block: {invalid[0]}",
+                    "invalid": invalid,
+                }), 400
+            me.availability = sorted(set(availability), key=slot_sort_key)
+
+    if "lookingForTeam" in data:
+        val = data["lookingForTeam"]
+        if not isinstance(val, bool):
+            errors["lookingForTeam"] = "Must be true or false."
+        else:
+            me.looking_for_team = val
 
     if errors:
         return jsonify({"error": "validation", "fields": errors}), 400
