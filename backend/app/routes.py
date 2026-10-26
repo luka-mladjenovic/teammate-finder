@@ -17,6 +17,11 @@ VALID_MAJORS = {
     "Computer Science Minor",
     "Computer Engineering Minor"
 }
+VALID_WEEKLY_HOURS = {"1-5", "6-10", "11-15", "15+"}
+VALID_RESPONSE_TIMES = {"within_1h", "few_hours", "same_day", "next_day"}
+VALID_CHANNELS = {"email", "discord", "slack", "text"}
+VALID_GOALS = {"pass", "strong_grade", "portfolio"}
+VALID_PACES = {"early", "steady", "deadline"}
 
 def current_student():
     student_id = session.get("student_id")
@@ -233,6 +238,41 @@ def update_me():
             errors["year"] = f"Year must be one of: {', '.join(sorted(VALID_YEARS))}."
         else:
             me.year = year
+
+    if "weeklyHours" in data:
+        val = data["weeklyHours"]
+        if val not in VALID_WEEKLY_HOURS:
+            errors["weeklyHours"] = f"Must be one of: {', '.join(sorted(VALID_WEEKLY_HOURS))}."
+        else:
+            me.weekly_hours = val
+
+    if "responseTime" in data:
+        val = data["responseTime"]
+        if val not in VALID_RESPONSE_TIMES:
+            errors["responseTime"] = f"Must be one of: {', '.join(sorted(VALID_RESPONSE_TIMES))}."
+        else:
+            me.response_time = val
+
+    if "channel" in data:
+        val = data["channel"]
+        if val not in VALID_CHANNELS:
+            errors["channel"] = f"Must be one of: {', '.join(sorted(VALID_CHANNELS))}."
+        else:
+            me.channel = val
+
+    if "goal" in data:
+        val = data["goal"]
+        if val not in VALID_GOALS:
+            errors["goal"] = f"Must be one of: {', '.join(sorted(VALID_GOALS))}."
+        else:
+            me.goal = val
+
+    if "pace" in data:
+        val = data["pace"]
+        if val not in VALID_PACES:
+            errors["pace"] = f"Must be one of: {', '.join(sorted(VALID_PACES))}."
+        else:
+            me.pace = val
 
     if errors:
         return jsonify({"error": "validation_failed", "fields": errors}), 422
