@@ -539,3 +539,26 @@ def respond_to_invite(invite_id):
     db.session.commit()
 
     return jsonify(invite.to_dict()), 200
+
+@main.route("/api/students/<student_id>/contact", methods=["GET"])
+def get_contact(student_id):
+    me = current_student()
+    if not me:
+        return jsonify({"error": "not_signed_in"}), 401
+
+    student = Student.query.get(student_id)
+    if not student:
+        return jsonify({"error": "not_found"}), 404
+
+    my_team_ids = {m.team_id for m in Membership.query.filter_by(student_id=me.id).all()}
+    their_team_ids = {m.team_id for m in Membership.query.filter_by(student_id=student_id).all()}
+    shared_team_ids = my_team_ids & their_team_ids
+
+    if not shared_team_ids:
+        return jsonify({"error": "contact_locked"}), 403
+
+    return jsonify({
+        "studentId": student.id,
+        "email": student.email,
+        "sharedProjectIds": list(shared_team_ids),
+    }), 200
