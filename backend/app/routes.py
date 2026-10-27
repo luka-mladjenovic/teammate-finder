@@ -492,3 +492,50 @@ def remove_member(project_id, student_id):
     db.session.commit()
 
     return "", 204
+
+@main.route("/api/invites/mine", methods=["GET"])
+def my_invites():
+    me = current_student()
+    if not me:
+        return jsonify({"error": "not_signed_in"}), 401
+
+    invites = Invite.query.filter_by(student_id=me.id, status="pending").all()
+    return jsonify([i.to_dict() for i in invites])
+
+@main.route("/api/invites/<invite_id>", methods=["POST"])
+def respond_to_invite(invite_id):
+    me = current_student()
+    if not me:
+        return jsonify({"error": "not_signed_in"}), 401
+
+    invite = Invite.query.get(invite_id)
+    if not invite or invite.student_id != me.id or invite.status != "pending":
+        return jsonify({"error": "not_found"}), 404
+
+    data = request.get_json() or {}
+    decision = data.get("decision")
+    if decision not in ("accept", "decline"):
+        return jsonify({"error": "validation", "fields": {"decision": "Must be accept or decline."}}), 400
+
+    if decision == "decline":
+        invite.status = "declined"
+        db.session.commit()
+        return jsonify(invite.to_dict()), 200
+
+    team = Team.query.get(invite.project_id)
+    if not team:
+        return jsonify({"error": "not_found"}), 404
+
+    if len(team.member_ids) >= team.size:
+        return jsonify({"error": "team_full"}), 409
+
+    my_team_count = Membership.query.filter_by(student_id=me.id).count()
+    if my_team_count >= MAX_PROJECTS:
+        return jsonify({"error": "project_limit"}), 409
+
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    db.session.add(Membership(team_id=team.id, student_id=me.id, joined_at=now.isoformat() + "Z"))
+    invite.status = "accepted"
+    db.session.commit()
+
+    return jsonify(invite.to_dict()), 200
