@@ -3,3 +3,4 @@ __pycache__/
 *.pyc
 instance/
 app.db
+*_test.py
