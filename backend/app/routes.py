@@ -620,3 +620,40 @@ def get_project_requests(project_id):
 
     requests_ = JoinRequest.query.filter_by(post_id=project_id, status="pending").all()
     return jsonify([r.to_dict() for r in requests_])
+
+@main.route("/api/projects/<project_id>/requests/<request_id>", methods=["POST"])
+def respond_to_request(project_id, request_id):
+    me = current_student()
+    if not me:
+        return jsonify({"error": "not_signed_in"}), 401
+
+    team = Team.query.get(project_id)
+    if not team:
+        return jsonify({"error": "not_found"}), 404
+
+    if team.owner_id != me.id:
+        return jsonify({"error": "not_owner"}), 403
+
+    join_request = JoinRequest.query.get(request_id)
+    if not join_request or join_request.post_id != project_id or join_request.status != "pending":
+        return jsonify({"error": "not_found"}), 404
+
+    data = request.get_json() or {}
+    decision = data.get("decision")
+    if decision not in ("accept", "decline"):
+        return jsonify({"error": "validation", "fields": {"decision": "Must be accept or decline."}}), 400
+
+    if decision == "decline":
+        join_request.status = "declined"
+        db.session.commit()
+        return jsonify(join_request.to_dict()), 200
+
+    if len(team.member_ids) >= team.size:
+        return jsonify({"error": "team_full"}), 409
+
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    db.session.add(Membership(team_id=project_id, student_id=join_request.student_id, joined_at=now.isoformat() + "Z"))
+    join_request.status = "accepted"
+    db.session.commit()
+
+    return jsonify(join_request.to_dict()), 200
