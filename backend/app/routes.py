@@ -70,14 +70,11 @@ def get_students():
     if not me:
         return jsonify({"error": "not_signed_in"}), 401
 
-    # students looking for a team, plus anyone sharing a project with me
-    my_teams = Team.query.filter(Team.member_ids.contains(me.id)).all()
+    my_teams = Team.query.join(Membership).filter(Membership.student_id == me.id).all()
     teammate_ids = {sid for t in my_teams for sid in t.member_ids}
 
     students = Student.query.filter(
-        (Student.looking_for_team == True) | (Student.id.in_(teammate_ids))
-    ).all()
-    # never include email here
+        (Student.looking_for_team == True) | (Student.id.in_(teammate_ids))).all()
     return jsonify([s.to_dict(include_email=False) for s in students if s.id != me.id])
 
 @main.route("/api/projects", methods=["GET"])
