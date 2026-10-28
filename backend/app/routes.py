@@ -26,12 +26,22 @@ SLOT_KEY_PATTERN = re.compile(r"^(mon|tue|wed|thu|fri|sat|sun)-(morning|afternoo
 
 DAY_ORDER = {"mon": 0, "tue": 1, "wed": 2, "thu": 3, "fri": 4, "sat": 5, "sun": 6}
 BLOCK_ORDER = {"morning": 0, "afternoon": 1, "early_evening": 2, "late_evening": 3, "night": 4}
+BLOCK_HOURS = {
+    "morning": 4,
+    "afternoon": 5,
+    "early_evening": 3,
+    "late_evening": 3,
+    "night": 2,
+}
 
 MIN_TEAM_SIZE = 2
 MAX_TEAM_SIZE = 8
 MAX_PROJECTS = 10
 
 main = Blueprint("main", __name__)
+
+def hours_per_week(slots):
+    return sum(BLOCK_HOURS[slot.split("-", 1)[1]] for slot in slots)
 
 def clean_text(s: str) -> str:
     # trims and collapses inner runs of spaces, per the spec
@@ -657,3 +667,32 @@ def respond_to_request(project_id, request_id):
     db.session.commit()
 
     return jsonify(join_request.to_dict()), 200
+
+@main.route("/api/me/availability", methods=["PUT"])
+def update_availability():
+    me = current_student()
+    if not me:
+        return jsonify({"error": "not_signed_in"}), 401
+
+    data = request.get_json() or {}
+    availability = data.get("availability")
+
+    if not isinstance(availability, list) or not all(isinstance(a, str) for a in availability):
+        return jsonify({"error": "not_a_list"}), 400
+
+    invalid = [a for a in availability if not SLOT_KEY_PATTERN.match(a)]
+    if invalid:
+        return jsonify({
+            "error": "invalid_time_block",
+            "message": f"Unknown time block: {invalid[0]}",
+            "invalid": invalid,
+        }), 400
+
+    cleaned = sorted(set(availability), key=slot_sort_key)
+    me.availability = cleaned
+    db.session.commit()
+
+    return jsonify({
+        "availability": cleaned,
+        "hoursPerWeek": hours_per_week(cleaned),
+    }), 200
