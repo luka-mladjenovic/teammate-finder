@@ -96,7 +96,7 @@ class Invite(db.Model):
     id = db.Column(db.String, primary_key=True, default=gen_id)
     project_id = db.Column(db.String, db.ForeignKey("team.id"), nullable=False)
     student_id = db.Column(db.String, db.ForeignKey("student.id"), nullable=False)
-    status = db.Column(db.String, default="pending")  # pending | accepted | declined
+    status = db.Column(db.String, default="pending")  # pending | accepted | declined | canceled
     created_at = db.Column(db.String, nullable=False)
 
     def to_dict(self):
@@ -119,6 +119,7 @@ class JoinRequest(db.Model):
         return {
             "id": self.id,
             "postId": self.post_id,
+            "studentId": self.student_id,
             "status": self.status,
             "createdAt": self.created_at,
         }
@@ -129,4 +130,4 @@ class Membership(db.Model):
     student_id = db.Column(db.String, db.ForeignKey("student.id"), nullable=False)
     joined_at = db.Column(db.String, nullable=False)  # ISO string, so we can order by it
 
-    __table_args__ = (db.UniqueConstraint("team_id", "student_id"),)
+    __table_args__ = (db.UniqueConstraint("team_id", "student_id"),)

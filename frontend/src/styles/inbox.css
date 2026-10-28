@@ -1,0 +1,141 @@
+/* Inbox (/inbox) and the nav badge. Loaded from main.tsx after components.css and before the themes, since the
+   badge is on every page. Invite cards reuse .tcard from teams.css, which loads with the page, so overrides of
+   it use two-class selectors. */
+
+/* ---------- Nav badge (TopNav: Inbox link and the Menu button) ---------- */
+.nav-badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: var(--radius-full);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  vertical-align: 1px;
+}
+.topnav-menu-btn { position: relative; }
+.nav-dot {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--color-canvas);
+}
+
+/* ---------- Page ---------- */
+.inbox-page { display: flex; flex-direction: column; gap: var(--space-xl); }
+.inbox-page .find-hero { margin-bottom: 0; }
+
+.inbox-error {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-sm) var(--space-md);
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  background: var(--color-warn-soft);
+  color: var(--color-warn);
+  font-size: 14px;
+}
+
+.inbox-section { display: flex; flex-direction: column; gap: var(--space-sm); }
+.inbox-section-head { display: flex; align-items: center; gap: 10px; }
+.inbox-section-head h2 { font-size: 20px; font-weight: 700; margin: 0; }
+.inbox-section-head h2:focus { outline: none; }
+.inbox-section-head h2:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 4px; border-radius: 4px; }
+.inbox-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-strong);
+  color: var(--color-ink);
+  font-size: 12px;
+  font-weight: 700;
+}
+.inbox-section-sub { margin: 0 0 var(--space-sm); }
+
+.inbox-empty {
+  margin: 0;
+  padding: 18px 20px;
+  border: 1px dashed var(--color-hairline);
+  border-radius: var(--radius-md);
+  color: var(--color-muted);
+}
+
+/* Invite card: an accent edge so it reads as "for you", not as a browse result. */
+.tcard.inbox-invite { border-color: var(--color-primary); box-shadow: 0 0 0 1px var(--color-primary-soft); }
+.tcard.inbox-invite:hover { border-color: var(--color-primary); }
+.tcard .tcard-names .muted { font-weight: 400; }
+
+/* Shared by the answer buttons in cards and rows. */
+.inbox-blocked { color: var(--color-warn); flex-basis: 100%; order: 3; }
+.btn[aria-disabled='true'] { opacity: 0.55; cursor: not-allowed; }
+
+/* ---------- Requests to your projects ---------- */
+.inbox-groups { display: flex; flex-direction: column; gap: var(--space-md); }
+.card.inbox-group { padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+.inbox-group-head { display: flex; align-items: flex-start; gap: 12px; }
+.inbox-group-title { font-size: 18px; font-weight: 600; margin: 2px 0 0; }
+.inbox-group-needs { margin: 0; }
+
+.inbox-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+
+.inbox-request {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.1fr) minmax(220px, 1fr) auto;
+  align-items: center;
+  gap: 12px 20px;
+  padding: 14px 0;
+  border-top: 1px solid var(--color-hairline-soft);
+  overflow: hidden;
+}
+.inbox-request-who { display: flex; align-items: flex-start; gap: 12px; min-width: 0; }
+.inbox-row-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.inbox-row-main a { color: var(--color-ink); text-decoration: none; }
+.inbox-row-main a:hover { text-decoration: underline; }
+.chips.inbox-roles { list-style: none; margin: 6px 0 0; padding: 0; }
+.chips.inbox-roles .chip { font-size: 12px; padding: 2px 10px; }
+.inbox-request-checks .reasons { margin: 0; }
+.inbox-request-checks .reasons ul { gap: 2px; }
+.inbox-request-actions { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 8px; max-width: 260px; }
+.inbox-request-actions .inbox-blocked { text-align: right; }
+
+@media (max-width: 900px) {
+  .inbox-request { grid-template-columns: 1fr; }
+  .inbox-request-actions { max-width: none; justify-content: flex-start; }
+  .inbox-request-actions .spacer { display: none; }
+  .inbox-request-actions .inbox-blocked { text-align: left; }
+}
+
+/* ---------- Invites and requests you sent ---------- */
+.inbox-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  padding: 12px 16px;
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-md);
+  background: var(--color-canvas);
+  overflow: hidden;
+}
+.inbox-row + .inbox-row { margin-top: 8px; }
+.inbox-row .inbox-row-main { flex: 1 1 180px; }
+.inbox-pending {
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  background: var(--color-primary-soft);
+  color: var(--color-primary-active);
+  font-weight: 600;
+}

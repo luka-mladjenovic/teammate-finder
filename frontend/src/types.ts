@@ -118,26 +118,35 @@ export interface Team {
 /** Body of POST /api/projects. The server sets id, ownerId, memberIds and createdAt. */
 export type NewProject = Pick<Team, 'course' | 'project' | 'size' | 'requiredRoles' | 'goal' | 'pace'>
 
-export type Decision = 'pending' | 'accepted' | 'declined'
-/** What the invitee or the owner sends to accept or decline (contract only, no UI yet). */
+/** `canceled`: an invite the team withdrew, or that was withdrawn when the team filled up. */
+export type Decision = 'pending' | 'accepted' | 'declined' | 'canceled'
+/** What the invitee or the owner sends to accept or decline (Inbox). */
 export type DecisionInput = 'accept' | 'decline'
 
-/** An invite from one of your projects to a student. Prototype: accepted at once. */
+/** An invite from a project to a student. Pending until they answer it in their Inbox. */
 export interface Invite {
   id: string
   projectId: string
   studentId: string
   status: Decision
   createdAt: string
+  /** The project as non-members see it. Only on GET /api/invites/mine. */
+  team?: TeamPost
+  /** Who is invited (no email). Only on GET /api/projects/:id/invites. */
+  student?: Student
 }
 
-/** Your request to join an open team. Stays pending in the prototype. */
+/** A request to join a team: yours (GET /api/requests/mine) or one sent to a project you own. */
 export interface JoinRequest {
   id: string
   /** TeamPost.id, which is the team's id. */
   postId: string
+  /** Who is asking. */
+  studentId?: string
   status: Decision
   createdAt: string
+  /** Who is asking (no email). Only on GET /api/projects/:id/requests. */
+  student?: Student
 }
 
 // ---------- Open teams (GET /api/team-posts) ----------
