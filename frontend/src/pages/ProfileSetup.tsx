@@ -74,6 +74,7 @@ const HOUR_OPTIONS = optionsOf(HOURS, (h) => WEEKLY_HOURS_LABEL[h])
 const PACE_OPTIONS = optionsOf(PACES, (p) => PACE_LABEL[p])
 const RESPONSE_OPTIONS = optionsOf(RESPONSES, (r) => RESPONSE_LABEL[r])
 const CHANNEL_OPTIONS = optionsOf(CHANNELS, (c) => CHANNEL_LABEL[c])
+const MAJOR_OPTIONS = optionsOf(['Computer Science', 'Computer Engineering', 'Computer Science Minor', 'Computer Engineering Minor'] as const, (major) => major)
 
 /** Used only if the viewer failed to load. */
 const GUEST: Student = {
@@ -720,11 +721,11 @@ function SetupForm({ viewer, signedIn, matchCtx, loadFailed, onSave }: SetupForm
           onChange={(v) => set('name', v)}
           error={errors['setup-name']}
         />
-        <TextField
+        <SelectField
           id="setup-major"
           label="Major"
-          placeholder="e.g. Computer Science"
           value={form.major}
+          options={MAJOR_OPTIONS}
           onChange={(v) => set('major', v)}
         />
         <SelectField id="setup-year" label="Year" value={form.year} options={YEAR_OPTIONS} onChange={(v) => set('year', v)} />
