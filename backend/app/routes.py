@@ -589,3 +589,18 @@ def request_to_join(project_id):
     db.session.commit()
 
     return jsonify(join_request.to_dict()), 201
+
+@main.route("/api/team-posts/<project_id>/requests/mine", methods=["DELETE"])
+def cancel_join_request(project_id):
+    me = current_student()
+    if not me:
+        return jsonify({"error": "not_signed_in"}), 401
+
+    join_request = JoinRequest.query.filter_by(post_id=project_id, student_id=me.id, status="pending").first()
+    if not join_request:
+        return jsonify({"error": "not_found"}), 404
+
+    db.session.delete(join_request)
+    db.session.commit()
+
+    return "", 204
