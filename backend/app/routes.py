@@ -562,3 +562,30 @@ def get_contact(student_id):
         "email": student.email,
         "sharedProjectIds": list(shared_team_ids),
     }), 200
+
+@main.route("/api/team-posts/<project_id>/requests", methods=["POST"])
+def request_to_join(project_id):
+    me = current_student()
+    if not me:
+        return jsonify({"error": "not_signed_in"}), 401
+
+    team = Team.query.get(project_id)
+    if not team:
+        return jsonify({"error": "not_found"}), 404
+
+    if me.id in team.member_ids:
+        return jsonify({"error": "already_member"}), 409
+
+    existing = JoinRequest.query.filter_by(post_id=project_id, student_id=me.id, status="pending").first()
+    if existing:
+        return jsonify({"error": "already_requested"}), 409
+
+    if len(team.member_ids) >= team.size:
+        return jsonify({"error": "team_full"}), 409
+
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    join_request = JoinRequest(post_id=project_id, student_id=me.id, status="pending", created_at=now.isoformat() + "Z")
+    db.session.add(join_request)
+    db.session.commit()
+
+    return jsonify(join_request.to_dict()), 201
