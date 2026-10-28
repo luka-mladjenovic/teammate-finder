@@ -604,3 +604,19 @@ def cancel_join_request(project_id):
     db.session.commit()
 
     return "", 204
+
+@main.route("/api/projects/<project_id>/requests", methods=["GET"])
+def get_project_requests(project_id):
+    me = current_student()
+    if not me:
+        return jsonify({"error": "not_signed_in"}), 401
+
+    team = Team.query.get(project_id)
+    if not team:
+        return jsonify({"error": "not_found"}), 404
+
+    if team.owner_id != me.id:
+        return jsonify({"error": "not_owner"}), 403
+
+    requests_ = JoinRequest.query.filter_by(post_id=project_id, status="pending").all()
+    return jsonify([r.to_dict() for r in requests_])
