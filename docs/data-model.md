@@ -146,8 +146,10 @@ Limits: `MIN_TEAM_SIZE = 2`, `MAX_TEAM_SIZE = 8`, `MAX_PROJECTS = 10` (projects 
 | `id` | string | |
 | `projectId` | string | |
 | `studentId` | string | who is invited |
-| `status` | `pending` \| `accepted` \| `declined` | |
+| `status` | `pending` \| `accepted` \| `declined` \| `canceled` | `canceled`: withdrawn by a member, or automatically when the team filled up |
 | `createdAt` | ISO date-time | |
+| `team` | TeamPost? | only on `GET /api/invites/mine`: the project as a non-member sees it (the invitee isn't a member yet, so nothing else tells them what they'd join) |
+| `student` | Student? | only on `GET /api/projects/:id/invites`: who is invited, **no email** |
 
 ### JoinRequest
 
@@ -155,8 +157,10 @@ Limits: `MIN_TEAM_SIZE = 2`, `MAX_TEAM_SIZE = 8`, `MAX_PROJECTS = 10` (projects 
 |---|---|---|
 | `id` | string | |
 | `postId` | string | the team-post id, which is the team's id |
+| `studentId` | string | who is asking |
 | `status` | `pending` \| `accepted` \| `declined` | |
 | `createdAt` | ISO date-time | |
+| `student` | Student? | only on `GET /api/projects/:id/requests` (owner's Inbox): the asker's profile, **no email** |
 
 ### TeamPost (a team with open spots, as other students see it)
 
@@ -309,8 +313,23 @@ Errors: `404` (not one of your projects, or no such student; a non-member gets 4
 
 > Prototype shortcut: the mock accepts invites at once (`status: "accepted"`, the student joins). The frontend
 > handles both: `accepted` adds the member; `pending` keeps them out and shows "Invite sent". A `409
-> already_invited` is also shown as "Invite sent" (nothing lists a project's pending invites, so after a reload
-> this is how the UI learns about one); every other error shows a toast with your `message`.
+> already_invited` is also shown as "Invite sent" (e.g. a teammate sent it since the inbox last loaded); every
+> other error shows a toast with your `message`.
+
+#### `GET /api/projects/:id/invites` · `api.projectInvites`
+
+→ `200 Invite[]`: the project's **pending** invites, newest first, each with `student` (no email). Members only;
+anyone else gets `404`. The frontend loads it for every project you're on (Inbox → Invites you sent, and the
+"Invite sent ✓" buttons after a reload).
+
+#### `DELETE /api/projects/:id/invites/:inviteId` · `api.cancelInvite`
+
+→ `204`; the invite's status becomes `canceled` and it leaves the invitee's inbox. Any member may cancel (any member
+may invite). `404` for non-members, or when the invite isn't a pending one of this project. The student can be
+invited again afterwards.
+
+**Automatic cancel.** When a team reaches its size (an invite or a join request was accepted), every other pending
+invite from it becomes `canceled` in the same transaction. Removing a member later doesn't bring them back.
 
 #### `DELETE /api/projects/:id/members/:studentId` · `api.removeMember`
 
@@ -336,14 +355,15 @@ No body → `201 JoinRequest` (`pending`). Errors: `404` · `409 already_member`
 
 → `204`. `404` when you have no pending request to that team.
 
-### Accepting and declining (contract only, no UI yet)
+### Accepting and declining (Inbox page, `/inbox`)
 
 | method | path | request | success | errors |
 |---|---|---|---|---|
-| GET | `/api/invites/mine` · `api.myInvites` | none | `200 Invite[]` (pending invites sent to you) | 401 |
-| POST | `/api/invites/:id` · `api.respondToInvite` | `{ "decision": "accept" \| "decline" }` | `200 Invite`; accept adds you to `memberIds` | 404, `409 team_full`, `409 project_limit` |
-| GET | `/api/projects/:id/requests` · `api.projectRequests` | none | `200 JoinRequest[]` (pending, owner only) | `403 not_owner`, 404 |
-| POST | `/api/projects/:id/requests/:requestId` · `api.respondToRequest` | `{ "decision": "accept" \| "decline" }` | `200 JoinRequest`; accept adds the student | `403 not_owner`, 404, `409 team_full` |
+| GET | `/api/invites/mine` · `api.myInvites` | none | `200 Invite[]` (pending invites sent to you, newest first, each with `team`) | 401 |
+| POST | `/api/invites/:id` · `api.respondToInvite` | `{ "decision": "accept" \| "decline" }` | `200 Invite`; accept adds you to `memberIds` and settles your pending join request to that team | 404, `409 team_full`, `409 project_limit` |
+| DELETE | `/api/projects/:id/invites/:inviteId` · `api.cancelInvite` | none | `204`; the team withdraws an invite | 404 |
+| GET | `/api/projects/:id/requests` · `api.projectRequests` | none | `200 JoinRequest[]` (pending, owner only, newest first, each with `student`) | `403 not_owner`, 404 |
+| POST | `/api/projects/:id/requests/:requestId` · `api.respondToRequest` | `{ "decision": "accept" \| "decline" }` | `200 JoinRequest`; accept adds the student and settles a pending invite to them for that project | `403 not_owner`, 404, `409 team_full` |
 
 ### Endpoint summary
 
@@ -361,6 +381,8 @@ No body → `201 JoinRequest` (`pending`). Errors: `404` · `409 already_member`
 | GET | `/api/projects` | 200 Team[] |
 | POST | `/api/projects` | 201 Team |
 | POST | `/api/projects/:id/invites` | 201 Invite |
+| GET | `/api/projects/:id/invites` | 200 Invite[] |
+| DELETE | `/api/projects/:id/invites/:inviteId` | 204 |
 | DELETE | `/api/projects/:id/members/:studentId` | 204 |
 | GET | `/api/team-posts` | 200 TeamPost[] |
 | GET | `/api/requests/mine` | 200 JoinRequest[] |

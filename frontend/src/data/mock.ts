@@ -369,3 +369,50 @@ export const SIDE_PROJECT: Team = {
 
 /** The viewer's projects in join order. */
 export const PROJECTS: Team[] = [TEAM, SIDE_PROJECT]
+
+/** Teams the viewer isn't on that invited them (Inbox). Made of STUDENTS, so My team works after Accept. */
+export const INVITING_TEAMS: Team[] = [
+  {
+    id: 'mx-gatoreats',
+    project: 'Gator Eats',
+    course: 'SwampHacks (personal)',
+    size: 4,
+    ownerId: 'sofia',
+    memberIds: ['sofia', 'kai'],
+    requiredRoles: ['lead', 'frontend', 'backend', 'design'],
+    goal: 'portfolio',
+    pace: 'deadline',
+    createdAt: '2026-10-25T21:00:00.000Z',
+  },
+  {
+    id: 'mx-scheduler',
+    project: 'Shell Scheduler',
+    course: 'Operating Systems',
+    size: 3,
+    ownerId: 'ethan',
+    memberIds: ['ethan', 'lena'],
+    requiredRoles: ['lead', 'backend', 'testing'],
+    goal: 'strong_grade',
+    pace: 'steady',
+    createdAt: '2026-10-20T15:30:00.000Z',
+  },
+]
+
+/** Invites to the viewer: [teamId, hours ago]. */
+export const MOCK_INVITES: [string, number][] = [
+  ['mx-gatoreats', 3],
+  ['mx-scheduler', 30],
+]
+
+/** Pending invites from the viewer's projects: [projectId, studentId, hours ago]. New mock invites are accepted at
+ *  once, so these are the only pending ones. Grace's is canceled once the Database Project fills up. */
+export const MOCK_SENT_INVITES: [string, string, number][] = [
+  ['t1', 'grace', 20],
+  ['t2', 'lena', 70],
+]
+
+/** Requests to join the viewer's projects: [projectId, studentId, hours ago]. Not Priya, so the study scenario holds. */
+export const MOCK_JOIN_REQUESTS: [string, string, number][] = [
+  ['t1', 'omar', 5],
+  ['t1', 'aisha', 52],
+]

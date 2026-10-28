@@ -2,9 +2,10 @@
 // Without VITE_API_URL every call runs against a small in-memory mock server (below) with simulated
 // latency, so loading states are visible. Set VITE_API_URL=https://<host> to call the Flask API instead:
 // each function already sends the real method, path and JSON body, so the backend only implements endpoints.
-import { ME, MOCK_EMAILS, PROJECTS, STUDENTS } from '../data/mock'
+import { INVITING_TEAMS, ME, MOCK_EMAILS, MOCK_INVITES, MOCK_JOIN_REQUESTS, MOCK_SENT_INVITES, PROJECTS, STUDENTS } from '../data/mock'
 import { TEAM_POSTS } from '../data/teamPosts'
 import { cleanSlots, hoursOf, SLOT_KEY_PATTERN } from '../lib/availability'
+import { commonSlots } from '../lib/matching'
 import { checkNewProject, cleanNewProject, isFull } from '../lib/projects'
 import { checkUfEmail } from '../lib/ufEmail'
 import {
@@ -145,13 +146,40 @@ const RESEND_MS = 30 * 1000
 const MAX_ATTEMPTS = 5
 const MAX_CODES_PER_HOUR = 5
 
+const hoursAgo = (h: number) => new Date(Date.now() - h * 60 * 60 * 1000).toISOString()
+
 const db = {
   // The prototype starts signed in as the demo viewer.
   signedIn: true,
   me: structuredClone(ME),
   projects: DEMO_NO_PROJECTS ? [] : structuredClone(PROJECTS),
-  invites: [] as Invite[],
+  /** Invites sent from the viewer's projects. */
+  invites: (DEMO_NO_PROJECTS ? [] : MOCK_SENT_INVITES).map(([projectId, studentId, h], i): Invite => ({
+    id: `inv_sent${i}`,
+    projectId,
+    studentId,
+    status: 'pending',
+    createdAt: hoursAgo(h),
+  })),
   requests: [] as JoinRequest[],
+  /** Teams that invited the viewer. Accepting moves one into `projects`. */
+  otherTeams: structuredClone(INVITING_TEAMS),
+  /** Invites sent to the viewer (Inbox). */
+  received: MOCK_INVITES.map(([projectId, h], i): Invite => ({
+    id: `inv_mock${i}`,
+    projectId,
+    studentId: ME.id,
+    status: 'pending',
+    createdAt: hoursAgo(h),
+  })),
+  /** Join requests to projects the viewer owns (Inbox). None for a new account. */
+  incoming: (DEMO_NO_PROJECTS ? [] : MOCK_JOIN_REQUESTS).map(([postId, studentId, h], i): JoinRequest => ({
+    id: `req_mock${i}`,
+    postId,
+    studentId,
+    status: 'pending',
+    createdAt: hoursAgo(h),
+  })),
   challenge: null as MockChallenge | null,
   codesSent: {} as Record<string, number[]>,
   seq: 0,
@@ -265,7 +293,31 @@ function mockInvite(projectId: string, studentId: string): Invite {
   p.memberIds.push(studentId)
   const invite: Invite = { id: nextId('inv_'), projectId: p.id, studentId, status: 'accepted', createdAt: now() }
   db.invites.push(invite)
+  cancelInvitesIfFull(p)
   return invite
+}
+
+/** Like the server: a full team's pending invites are canceled. */
+function cancelInvitesIfFull(p: Team) {
+  if (!isFull(p)) return
+  for (const i of db.invites) if (i.projectId === p.id && i.status === 'pending') i.status = 'canceled'
+}
+
+function mockProjectInvites(projectId: string): Invite[] {
+  myProject(projectId)
+  return db.invites
+    .filter((i) => i.projectId === projectId && i.status === 'pending')
+    .flatMap((i) => {
+      const student = STUDENTS.find((s) => s.id === i.studentId)
+      return student ? [{ ...i, student }] : []
+    })
+}
+
+function mockCancelInvite(projectId: string, inviteId: string) {
+  myProject(projectId)
+  const inv = db.invites.find((i) => i.id === inviteId && i.projectId === projectId && i.status === 'pending')
+  if (!inv) fail(404, 'not_found', 'This invite was already answered or withdrawn.')
+  inv.status = 'canceled'
 }
 
 function mockRemoveMember(projectId: string, studentId: string) {
@@ -295,6 +347,85 @@ function mockRequestToJoin(postId: string): JoinRequest {
 function mockCancelRequest(postId: string) {
   if (!db.requests.some((r) => r.postId === postId && r.status === 'pending')) fail(404, 'not_found', 'No pending request to this team.')
   db.requests = db.requests.filter((r) => !(r.postId === postId && r.status === 'pending'))
+}
+
+/** A team as non-members see it, like the server's team_summary(). */
+function mockSummary(t: Team): TeamPost {
+  const people = t.memberIds.map((id) => (id === db.me.id ? db.me : STUDENTS.find((s) => s.id === id))).filter((s): s is Student => Boolean(s))
+  const covered = new Set(people.flatMap((m) => m.roles))
+  return {
+    id: t.id,
+    project: t.project,
+    course: t.course,
+    members: people.map((m) => ({ id: m.id, name: m.name, roles: m.roles })),
+    rolesNeeded: t.requiredRoles.filter((r) => !covered.has(r)),
+    goal: t.goal,
+    pace: t.pace,
+    availability: commonSlots(people),
+    size: t.size,
+    postedAt: t.createdAt,
+  }
+}
+
+function mockMyInvites(): Invite[] {
+  requireSession()
+  return db.received
+    .filter((i) => i.status === 'pending')
+    .flatMap((i) => {
+      const t = db.otherTeams.find((x) => x.id === i.projectId)
+      return t ? [{ ...i, team: mockSummary(t) }] : []
+    })
+}
+
+function mockRespondToInvite(inviteId: string, decision: DecisionInput): Invite {
+  const inv = db.received.find((i) => i.id === inviteId && i.status === 'pending') ?? fail(404, 'not_found', 'This invite was withdrawn or already answered.')
+  if (decision !== 'accept' && decision !== 'decline') fail(400, 'validation', 'Must be accept or decline.', { fields: { decision: 'Must be accept or decline.' } })
+  if (decision === 'decline') {
+    inv.status = 'declined'
+    return inv
+  }
+  const t = db.otherTeams.find((x) => x.id === inv.projectId) ?? fail(404, 'not_found', 'This project no longer exists.')
+  if (isFull(t)) fail(409, 'team_full', `${t.project} is full.`)
+  if (db.projects.length >= MAX_PROJECTS) fail(409, 'project_limit', `You're in ${MAX_PROJECTS} projects, the most allowed at once.`)
+  t.memberIds.push(db.me.id)
+  db.otherTeams = db.otherTeams.filter((x) => x.id !== t.id)
+  db.projects.push(t)
+  inv.status = 'accepted'
+  return inv
+}
+
+function ownProject(projectId: string): Team {
+  const p = myProject(projectId)
+  if (p.ownerId !== db.me.id) fail(403, 'not_owner', 'Only the project owner sees join requests.')
+  return p
+}
+
+function mockProjectRequests(projectId: string): JoinRequest[] {
+  ownProject(projectId)
+  return db.incoming
+    .filter((r) => r.postId === projectId && r.status === 'pending')
+    .flatMap((r) => {
+      const student = STUDENTS.find((s) => s.id === r.studentId)
+      return student ? [{ ...r, student }] : []
+    })
+}
+
+function mockRespondToRequest(projectId: string, requestId: string, decision: DecisionInput): JoinRequest {
+  const p = ownProject(projectId)
+  const req = db.incoming.find((r) => r.id === requestId && r.postId === projectId && r.status === 'pending') ?? fail(404, 'not_found', 'This request was canceled or already answered.')
+  if (decision === 'decline') {
+    req.status = 'declined'
+    return req
+  }
+  const sid = req.studentId ?? ''
+  if (!p.memberIds.includes(sid)) {
+    if (isFull(p)) fail(409, 'team_full', `${p.project} is full.`)
+    p.memberIds.push(sid)
+  }
+  req.status = 'accepted'
+  for (const i of db.invites) if (i.projectId === p.id && i.studentId === sid && i.status === 'pending') i.status = 'accepted'
+  cancelInvitesIfFull(p)
+  return req
 }
 
 function mockContact(studentId: string): Contact {
@@ -364,6 +495,14 @@ export const api = {
   /** POST /api/projects/:id/invites → 201 Invite (pending; the prototype accepts at once). 404 for non-members, 409 already_member | team_full | already_invited. */
   invite: (projectId: string, studentId: string) =>
     post<Invite>(`/api/projects/${seg(projectId)}/invites`, { studentId }, () => mockInvite(projectId, studentId)),
+  /** GET /api/projects/:id/invites: the project's pending invites, each with `student`. 404 for non-members. */
+  projectInvites: (projectId: string) =>
+    get<Invite[]>(`/api/projects/${seg(projectId)}/invites`, () => mockProjectInvites(projectId)).then((list) =>
+      list.map((i) => (i.student ? { ...i, student: withCleanSlots(i.student) } : i)),
+    ),
+  /** DELETE /api/projects/:id/invites/:inviteId → 204. Any member may cancel. 404 if it's no longer pending. */
+  cancelInvite: (projectId: string, inviteId: string) =>
+    del(`/api/projects/${seg(projectId)}/invites/${seg(inviteId)}`, () => mockCancelInvite(projectId, inviteId)),
   /** DELETE /api/projects/:id/members/:studentId → 204. Owner only: 403 not_owner, 400 cannot_remove_owner. */
   removeMember: (projectId: string, studentId: string) =>
     del(`/api/projects/${seg(projectId)}/members/${seg(studentId)}`, () => mockRemoveMember(projectId, studentId)),
@@ -378,22 +517,23 @@ export const api = {
   /** DELETE /api/team-posts/:id/requests/mine → 204. 404 if there is no pending request. */
   cancelRequest: (postId: string) => del(`/api/team-posts/${seg(postId)}/requests/mine`, () => mockCancelRequest(postId)),
 
-  // Accepting and declining. In the contract so the backend can build it; there is no UI yet,
-  // and the mock has nothing to answer (nobody invites the demo viewer or asks to join their projects).
-  /** GET /api/invites/mine: pending invites sent to you. */
-  myInvites: () => get<Invite[]>('/api/invites/mine', () => []),
-  /** POST /api/invites/:id {decision}: accept adds you to the project. */
+  // Inbox: accepting and declining
+  /** GET /api/invites/mine: pending invites to you, each with `team`. */
+  myInvites: () =>
+    get<Invite[]>('/api/invites/mine', mockMyInvites).then((list) =>
+      list.map((i) => (i.team ? { ...i, team: withCleanSlots(i.team) } : i)),
+    ),
+  /** POST /api/invites/:id {decision}: accept adds you to the project. 404, 409 team_full | project_limit. */
   respondToInvite: (inviteId: string, decision: DecisionInput) =>
-    post<Invite>(`/api/invites/${seg(inviteId)}`, { decision }, () => fail(404, 'not_found', 'No such invite.')),
-  /** GET /api/projects/:id/requests: pending join requests to a project you own. */
+    post<Invite>(`/api/invites/${seg(inviteId)}`, { decision }, () => mockRespondToInvite(inviteId, decision)),
+  /** GET /api/projects/:id/requests: pending requests to a project you own, each with `student`. 403 not_owner. */
   projectRequests: (projectId: string) =>
-    get<JoinRequest[]>(`/api/projects/${seg(projectId)}/requests`, () => {
-      myProject(projectId)
-      return []
-    }),
-  /** POST /api/projects/:id/requests/:requestId {decision}: owner only; accept adds the student. */
+    get<JoinRequest[]>(`/api/projects/${seg(projectId)}/requests`, () => mockProjectRequests(projectId)).then((list) =>
+      list.map((r) => (r.student ? { ...r, student: withCleanSlots(r.student) } : r)),
+    ),
+  /** POST /api/projects/:id/requests/:requestId {decision}: owner only; accept adds the student. 404, 409 team_full. */
   respondToRequest: (projectId: string, requestId: string, decision: DecisionInput) =>
     post<JoinRequest>(`/api/projects/${seg(projectId)}/requests/${seg(requestId)}`, { decision }, () =>
-      fail(404, 'not_found', 'No such request.'),
+      mockRespondToRequest(projectId, requestId, decision),
     ),
 }

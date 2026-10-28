@@ -11,10 +11,10 @@ import { SignedOutPage } from '../components/SignedOutPage'
 import { DAY_LABEL, GOAL_LABEL, PACE_LABEL, ROLE_LABEL, SLOT_LABEL, SLOT_TIME } from '../labels'
 import { formatH, formatHours, groupByBlock, hoursOf } from '../lib/availability'
 import { joinWords } from '../lib/contact'
-import { MIN_SHARED_HOURS } from '../lib/matching'
+import { sharedHoursWith, sharedSlots, teamFitReasons } from '../lib/teamFit'
 import { useArrivalFocus } from '../lib/useArrivalFocus'
 import { useAppData } from '../state/AppData'
-import type { Goal, MatchReason, Role, SlotKey, Student, TeamPost } from '../types'
+import type { Goal, Role, SlotKey, Student, TeamPost } from '../types'
 
 type SortKey = 'fit' | 'shared' | 'newest'
 
@@ -32,47 +32,6 @@ const ALL_GOALS = Object.keys(GOAL_LABEL) as Goal[]
 const SPRING = { type: 'spring', stiffness: 380, damping: 32 } as const
 
 /* ---------- Pure helpers ---------- */
-
-function sharedSlots(post: TeamPost, viewer: Student): SlotKey[] {
-  return post.availability.filter((s) => viewer.availability.includes(s))
-}
-
-const sharedHoursWith = (post: TeamPost, viewer: Student) => hoursOf(sharedSlots(post, viewer))
-
-const lower = (s: string) => s.toLowerCase()
-
-/** Plain checks for one team, from the viewer's side. No hidden score is shown. */
-function teamFitReasons(post: TeamPost, viewer: Student, myRoles: Role[]): MatchReason[] {
-  const reasons: MatchReason[] = []
-
-  const fills = post.rolesNeeded.filter((r) => myRoles.includes(r))
-  reasons.push(
-    fills.length > 0
-      ? { kind: 'good', text: `You fill their ${joinWords(fills.map((r) => ROLE_LABEL[r]))} role${fills.length > 1 ? 's' : ''}` }
-      : { kind: 'warn', text: "You don't cover a role they need" },
-  )
-
-  const hours = sharedHoursWith(post, viewer)
-  reasons.push(
-    hours >= MIN_SHARED_HOURS
-      ? { kind: 'good', text: `${formatHours(hours)} together` }
-      : { kind: 'warn', text: hours === 0 ? 'No time shared with you' : `Only ${formatHours(hours)} together` },
-  )
-
-  reasons.push(
-    post.goal === viewer.goal
-      ? { kind: 'good', text: `Same goal: ${lower(GOAL_LABEL[post.goal])}` }
-      : { kind: 'warn', text: `Different goal: ${lower(GOAL_LABEL[post.goal])} (you: ${lower(GOAL_LABEL[viewer.goal])})` },
-  )
-
-  reasons.push(
-    post.pace === viewer.pace
-      ? { kind: 'good', text: `Same pace: ${lower(PACE_LABEL[post.pace])}` }
-      : { kind: 'warn', text: `Different pace: ${lower(PACE_LABEL[post.pace])} (you: ${lower(PACE_LABEL[viewer.pace])})` },
-  )
-
-  return reasons
-}
 
 /** Only used for the "Best fit" sort: passed checks minus warnings. Shared hours only break ties. */
 function fitScore(post: TeamPost, viewer: Student, myRoles: Role[]) {
