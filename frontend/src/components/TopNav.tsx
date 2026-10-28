@@ -131,7 +131,7 @@ function AccountMenu({ onSignOut }: { onSignOut: () => void }) {
         <div className="acct-who">
           <Avatar student={viewer} size={40} />
           <div className="acct-id">
-            <strong className="acct-name">{viewer.name || 'Name not set yet'}</strong>
+            <strong className="acct-name">{viewer.name || 'New User'}</strong>
             {viewer.email && <span className="acct-email">{viewer.email}</span>}
           </div>
         </div>
