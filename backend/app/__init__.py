@@ -5,6 +5,7 @@ load_dotenv()
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
+from datetime import timedelta
 
 db = SQLAlchemy()
 
@@ -13,6 +14,7 @@ def create_app():
     app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///app.db"
     app.config["SECRET_KEY"] = os.environ["SECRET_KEY"]
     app.config["SESSION_COOKIE_SECURE"] = False  # localhost http, per the handoff doc
+    app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=30)
 
     db.init_app(app)
     # must match the frontend's origin exactly; "*" does not work with cookies
