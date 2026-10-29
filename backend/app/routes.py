@@ -5,6 +5,7 @@ import random
 from datetime import datetime, timedelta, timezone
 from app import db
 from app.courses import VALID_COURSES
+from sqlalchemy.exc import IntegrityError
 
 EMAIL_PATTERN = re.compile(r"^[a-z0-9._%+-]{1,64}@ufl\.edu$")
 
@@ -442,7 +443,16 @@ def update_me():
     if errors:
         return jsonify({"error": "validation", "fields": errors}), 400
 
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({
+            "error": "username_taken",
+            "message": "That username is taken.",
+            "fields": {"username": "That username is taken."},
+        }), 409
+
     return jsonify(me.to_dict(include_email=True)), 200
 
 @main.route("/api/projects", methods=["POST"])
