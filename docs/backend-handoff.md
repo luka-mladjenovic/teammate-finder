@@ -259,10 +259,6 @@ switches the look (in the single-file build both go before the `#`).
 
 ## 9. Known gaps (not built in the frontend yet)
 
-- No screens to accept or decline invites or join requests; the endpoints are in the contract (step 5).
-- No endpoint lists a project's pending invites, so after a reload the UI shows "Invite sent" again only when
-  the student is invited a second time and you answer `409 already_invited`. Add `GET /api/projects/:id/invites`
-  if you want it shown right away; the frontend would need a small change.
 - No note can go with an invite or a join request yet (the remaining part of F3). It needs `Invite.note` and
   `JoinRequest.note` in the contract and a screen for the person who receives it.
 - Nothing stops a student from joining two teams in the same course. The specs chose "allowed, no warning" for

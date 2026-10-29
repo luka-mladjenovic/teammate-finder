@@ -5,6 +5,7 @@ import { TopNav } from './components/TopNav'
 import { LoadingScreen } from './fun/LoadingScreen'
 import { toggleRetroTheme, useKonami } from './fun/useKonami'
 import { FindTeammates } from './pages/FindTeammates'
+import { Inbox } from './pages/Inbox'
 import { Landing } from './pages/Landing'
 import { MyTeam } from './pages/MyTeam'
 import { NewProject } from './pages/NewProject'
@@ -48,6 +49,7 @@ function Shell() {
             <Route path="/people/:id" element={<ProfileDetail />} />
             <Route path="/team" element={<MyTeam />} />
             <Route path="/teams" element={<OpenTeams />} />
+            <Route path="/inbox" element={<Inbox />} />
             <Route path="/projects/new" element={<NewProject />} />
             <Route path="/profile/setup" element={<ProfileSetup />} />
             <Route path="/signup" element={<SignUp mode="signup" />} />

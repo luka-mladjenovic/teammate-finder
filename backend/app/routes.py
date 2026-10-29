@@ -23,6 +23,7 @@ VALID_ROLES = {"lead", "frontend", "backend", "design", "docs", "testing"}
 VALID_WORK_MODES = {"online", "in_person"}
 
 SLOT_KEY_PATTERN = re.compile(r"^(mon|tue|wed|thu|fri|sat|sun)-(morning|afternoon|early_evening|late_evening|night)$")
+USERNAME_PATTERN = re.compile(r"^[a-z0-9_]{3,20}$")
 
 DAY_ORDER = {"mon": 0, "tue": 1, "wed": 2, "thu": 3, "fri": 4, "sat": 5, "sun": 6}
 BLOCK_ORDER = {"morning": 0, "afternoon": 1, "early_evening": 2, "late_evening": 3, "night": 4}
@@ -57,6 +58,43 @@ def current_student():
         return None
     return Student.query.get(student_id)
 
+# a team as non-members see it (team posts, invites): no emails, only the time everyone shares
+def team_summary(t):
+    members = Student.query.filter(Student.id.in_(t.member_ids)).all()
+    # keep join order (owner first)
+    order = {sid: i for i, sid in enumerate(t.member_ids)}
+    members.sort(key=lambda m: order.get(m.id, 0))
+    covered_roles = {r for m in members for r in m.roles}
+    roles_needed = [r for r in t.required_roles if r not in covered_roles]
+
+    if members:
+        shared = set(members[0].availability)
+        for m in members[1:]:
+            shared &= set(m.availability)
+    else:
+        shared = set()
+
+    return {
+        "id": t.id,
+        "project": t.project,
+        "course": t.course,
+        "members": [{"id": m.id, "name": m.name, "roles": m.roles} for m in members],
+        "rolesNeeded": roles_needed,
+        "goal": t.goal,
+        "pace": t.pace,
+        "availability": sorted(shared, key=slot_sort_key),
+        "size": t.size,
+        "postedAt": t.created_at,
+    }
+
+# call after adding a member, before commit: a full team's pending invites get canceled
+def cancel_invites_if_full(team_id):
+    team = Team.query.get(team_id)
+    if Membership.query.filter_by(team_id=team_id).count() < team.size:
+        return
+    for i in Invite.query.filter_by(project_id=team_id, status="pending").all():
+        i.status = "canceled"
+
 @main.route("/api/me", methods=["GET"])
 def get_me():
     student = current_student()
@@ -73,8 +111,17 @@ def get_students():
     my_teams = Team.query.join(Membership).filter(Membership.student_id == me.id).all()
     teammate_ids = {sid for t in my_teams for sid in t.member_ids}
 
-    students = Student.query.filter(
-        (Student.looking_for_team == True) | (Student.id.in_(teammate_ids))).all()
+    query = Student.query.filter(
+        (Student.looking_for_team == True) | (Student.id.in_(teammate_ids))
+    )
+
+    search = (request.args.get("q") or "").strip()
+    if search:
+        query = query.filter(
+            Student.name.ilike(f"%{search}%") | Student.username.ilike(f"%{search}%")
+        )
+
+    students = query.all()
     return jsonify([s.to_dict(include_email=False) for s in students if s.id != me.id])
 
 @main.route("/api/projects", methods=["GET"])
@@ -98,30 +145,7 @@ def get_team_posts():
     for t in all_teams:
         if len(t.member_ids) >= t.size:
             continue
-
-        members = Student.query.filter(Student.id.in_(t.member_ids)).all()
-        covered_roles = {r for m in members for r in m.roles}
-        roles_needed = [r for r in t.required_roles if r not in covered_roles]
-
-        if members:
-            shared = set(members[0].availability)
-            for m in members[1:]:
-                shared &= set(m.availability)
-        else:
-            shared = set()
-
-        posts.append({
-            "id": t.id,
-            "project": t.project,
-            "course": t.course,
-            "members": [{"id": m.id, "name": m.name, "roles": m.roles} for m in members],
-            "rolesNeeded": roles_needed,
-            "goal": t.goal,
-            "pace": t.pace,
-            "availability": list(shared),
-            "size": t.size,
-            "postedAt": t.created_at,
-        })
+        posts.append(team_summary(t))
     return jsonify(posts)
 
 @main.route("/api/requests/mine", methods=["GET"])
@@ -373,6 +397,20 @@ def update_me():
 
     if errors:
         return jsonify({"error": "validation", "fields": errors}), 400
+
+    if "username" in data:
+        username = (data["username"] or "").strip().lower()
+        if not USERNAME_PATTERN.match(username):
+            errors["username"] = "3-20 characters, letters, numbers, and underscores only."
+        else:
+            existing = Student.query.filter(Student.username == username, Student.id != me.id).first()
+            if existing:
+                return jsonify({
+                    "error": "username_taken",
+                    "message": "That username is taken.",
+                    "fields": {"username": "That username is taken."},
+                }), 409
+            me.username = username
     
     db.session.commit()
     return jsonify(me.to_dict(include_email=True)), 200
@@ -475,6 +513,44 @@ def create_invite(project_id):
 
     return jsonify(invite.to_dict()), 201
 
+@main.route("/api/projects/<project_id>/invites", methods=["GET"])
+def get_project_invites(project_id):
+    me = current_student()
+    if not me:
+        return jsonify({"error": "not_signed_in"}), 401
+
+    team = Team.query.get(project_id)
+    if not team or me.id not in team.member_ids:
+        return jsonify({"error": "not_found"}), 404
+
+    invites = Invite.query.filter_by(project_id=project_id, status="pending").order_by(Invite.created_at.desc()).all()
+    result = []
+    for i in invites:
+        student = Student.query.get(i.student_id)
+        if not student:
+            continue
+        result.append({**i.to_dict(), "student": student.to_dict(include_email=False)})
+    return jsonify(result)
+
+@main.route("/api/projects/<project_id>/invites/<invite_id>", methods=["DELETE"])
+def cancel_invite(project_id, invite_id):
+    me = current_student()
+    if not me:
+        return jsonify({"error": "not_signed_in"}), 401
+
+    # any member can invite, so any member can cancel
+    team = Team.query.get(project_id)
+    if not team or me.id not in team.member_ids:
+        return jsonify({"error": "not_found"}), 404
+
+    invite = Invite.query.get(invite_id)
+    if not invite or invite.project_id != project_id or invite.status != "pending":
+        return jsonify({"error": "not_found"}), 404
+
+    invite.status = "canceled"
+    db.session.commit()
+    return "", 204
+
 @main.route("/api/projects/<project_id>/members/<student_id>", methods=["DELETE"])
 def remove_member(project_id, student_id):
     me = current_student()
@@ -506,8 +582,14 @@ def my_invites():
     if not me:
         return jsonify({"error": "not_signed_in"}), 401
 
-    invites = Invite.query.filter_by(student_id=me.id, status="pending").all()
-    return jsonify([i.to_dict() for i in invites])
+    invites = Invite.query.filter_by(student_id=me.id, status="pending").order_by(Invite.created_at.desc()).all()
+    result = []
+    for i in invites:
+        team = Team.query.get(i.project_id)
+        if not team:
+            continue  # project was deleted
+        result.append({**i.to_dict(), "team": team_summary(team)})
+    return jsonify(result)
 
 @main.route("/api/invites/<invite_id>", methods=["POST"])
 def respond_to_invite(invite_id):
@@ -533,6 +615,11 @@ def respond_to_invite(invite_id):
     if not team:
         return jsonify({"error": "not_found"}), 404
 
+    if me.id in team.member_ids:
+        invite.status = "accepted"
+        db.session.commit()
+        return jsonify(invite.to_dict()), 200
+
     if len(team.member_ids) >= team.size:
         return jsonify({"error": "team_full"}), 409
 
@@ -543,6 +630,10 @@ def respond_to_invite(invite_id):
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     db.session.add(Membership(team_id=team.id, student_id=me.id, joined_at=now.isoformat() + "Z"))
     invite.status = "accepted"
+    # a pending join request to the same team is settled too
+    for r in JoinRequest.query.filter_by(post_id=team.id, student_id=me.id, status="pending").all():
+        r.status = "accepted"
+    cancel_invites_if_full(team.id)
     db.session.commit()
 
     return jsonify(invite.to_dict()), 200
@@ -625,8 +716,14 @@ def get_project_requests(project_id):
     if team.owner_id != me.id:
         return jsonify({"error": "not_owner"}), 403
 
-    requests_ = JoinRequest.query.filter_by(post_id=project_id, status="pending").all()
-    return jsonify([r.to_dict() for r in requests_])
+    requests_ = JoinRequest.query.filter_by(post_id=project_id, status="pending").order_by(JoinRequest.created_at.desc()).all()
+    result = []
+    for r in requests_:
+        student = Student.query.get(r.student_id)
+        if not student:
+            continue
+        result.append({**r.to_dict(), "student": student.to_dict(include_email=False)})
+    return jsonify(result)
 
 @main.route("/api/projects/<project_id>/requests/<request_id>", methods=["POST"])
 def respond_to_request(project_id, request_id):
@@ -655,12 +752,20 @@ def respond_to_request(project_id, request_id):
         db.session.commit()
         return jsonify(join_request.to_dict()), 200
 
+    if join_request.student_id in team.member_ids:
+        join_request.status = "accepted"
+        db.session.commit()
+        return jsonify(join_request.to_dict()), 200
+
     if len(team.member_ids) >= team.size:
         return jsonify({"error": "team_full"}), 409
 
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     db.session.add(Membership(team_id=project_id, student_id=join_request.student_id, joined_at=now.isoformat() + "Z"))
     join_request.status = "accepted"
+    for i in Invite.query.filter_by(project_id=project_id, student_id=join_request.student_id, status="pending").all():
+        i.status = "accepted"
+    cancel_invites_if_full(project_id)
     db.session.commit()
 
     return jsonify(join_request.to_dict()), 200
