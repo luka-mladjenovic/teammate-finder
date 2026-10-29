@@ -362,10 +362,31 @@ function mockCancelInvite(projectId: string, inviteId: string) {
 
 function mockRemoveMember(projectId: string, studentId: string) {
   const p = myProject(projectId)
+  // Leaving: a member who isn't the owner may remove themselves (the change asked of the server in
+  // docs/backend-handoff.md section 10). Today's Flask backend still answers 403 not_owner here.
+  if (studentId === db.me.id && p.ownerId !== db.me.id) {
+    p.memberIds = p.memberIds.filter((id) => id !== studentId)
+    // No longer one of your projects (duplicate-name and 10-project checks read db.projects).
+    db.projects = db.projects.filter((t) => t.id !== p.id)
+    db.otherTeams.push(p)
+    return
+  }
   if (p.ownerId !== db.me.id) fail(403, 'not_owner', 'Only the project owner can remove members.')
   if (studentId === p.ownerId) fail(400, 'cannot_remove_owner', "The owner can't be removed.")
   if (!p.memberIds.includes(studentId)) fail(404, 'not_found', 'They are not on this team.')
   p.memberIds = p.memberIds.filter((id) => id !== studentId)
+}
+
+/**
+ * DELETE /api/projects/:id: owner only. Gone for every member at once; its pending invites and join requests are
+ * canceled. The real server is asked to soft-delete (reviews keep their teamId); the mock just drops it.
+ */
+function mockDeleteProject(projectId: string) {
+  const p = myProject(projectId)
+  if (p.ownerId !== db.me.id) fail(403, 'not_owner', 'Only the project owner can delete it.')
+  db.projects = db.projects.filter((t) => t.id !== p.id)
+  for (const i of db.invites) if (i.projectId === p.id && i.status === 'pending') i.status = 'canceled'
+  for (const r of db.incoming) if (r.postId === p.id && r.status === 'pending') r.status = 'canceled'
 }
 
 function mockTeamPosts(): TeamPost[] {
@@ -602,9 +623,18 @@ export const api = {
   /** DELETE /api/projects/:id/invites/:inviteId → 204. Any member may cancel. 404 if it's no longer pending. */
   cancelInvite: (projectId: string, inviteId: string) =>
     del(`/api/projects/${seg(projectId)}/invites/${seg(inviteId)}`, () => mockCancelInvite(projectId, inviteId)),
-  /** DELETE /api/projects/:id/members/:studentId → 204. Owner only: 403 not_owner, 400 cannot_remove_owner. */
+  /** DELETE /api/projects/:id/members/:studentId → 204. The owner removes others: 403 not_owner, 400 cannot_remove_owner. */
   removeMember: (projectId: string, studentId: string) =>
     del(`/api/projects/${seg(projectId)}/members/${seg(studentId)}`, () => mockRemoveMember(projectId, studentId)),
+  /**
+   * Leave a project you don't own: the same DELETE /api/projects/:id/members/:studentId with your own id → 204.
+   * 400 cannot_remove_owner (the owner can't leave), 404. Today's backend answers 403 not_owner (not built yet).
+   */
+  leaveProject: (projectId: string, myId: string) =>
+    del(`/api/projects/${seg(projectId)}/members/${seg(myId)}`, () => mockRemoveMember(projectId, myId)),
+  /** DELETE /api/projects/:id → 204, for every member. Owner only: 403 not_owner, 404 not_found. Today's backend
+   *  has no such route (404 without a JSON error, 405, or a failed preflight). */
+  deleteProject: (projectId: string) => del(`/api/projects/${seg(projectId)}`, () => mockDeleteProject(projectId)),
 
   // Open teams and join requests
   /** GET /api/team-posts: teams with open spots, never one you're in. */
