@@ -11,6 +11,10 @@ the key, falls back to a free-text Course field while `GET /api/courses` is miss
 yet" while the reviews route is missing, and filters search answers itself. Questions and suggestions for the
 backend: [section 10, Frontend notes for Luka](#10-frontend-notes-for-luka).
 
+**New on 10/29:** members can leave a project and owners can delete one (My team). Both need a small backend change,
+spelled out in section 10, notes 15 and 16. Until then the frontend says "Leaving a project isn't available on the
+server yet." / "Deleting a project isn't available on the server yet." and changes nothing.
+
 | Read | For |
 |---|---|
 | [`data-model.md`](data-model.md) | **The contract**: shapes, endpoints, error codes, the privacy rules the server enforces |
@@ -133,6 +137,8 @@ no `/api/` requests appear at all.
 | `/people/:id`, `/team` | `GET /api/students/:id/contact`, only for students the client believes are unlocked; cached per student until sign-in or sign-out |
 | Invite (Find teammates, compare tray, profile page) | `POST /api/projects/:id/invites` for the **current** project; not sent again while that student's invite is pending |
 | My team → remove (×) | `DELETE /api/projects/:id/members/:studentId` (the button shows only to the owner) |
+| My team → Leave project (members who don't own it) | `DELETE /api/projects/:id/members/<your own id>`, after a confirm dialog |
+| My team → Delete project (owner only) | `DELETE /api/projects/:id`, after a confirm dialog |
 | `/projects/new` → Create project | `POST /api/projects` (`course`: a code from `GET /api/courses`) |
 | `/teams` → Request to join / Cancel request | `POST /api/team-posts/:id/requests` / `DELETE /api/team-posts/:id/requests/mine` |
 | Switching project, filters, sorting, compare | No request |
@@ -165,7 +171,9 @@ Build in this order; each step makes more of the app work. Details and examples 
 
 - [ ] `POST /api/projects` → `201 Team` (`400 validation` with `fields`, `409 duplicate_name`, `409 project_limit`)
 - [ ] `POST /api/projects/:id/invites` → `201 Invite` with `status: "pending"`
-- [ ] `DELETE /api/projects/:id/members/:studentId` → `204` (owner only)
+- [ ] `DELETE /api/projects/:id/members/:studentId` → `204` (the owner removes others; a member who isn't the owner
+      may remove themselves, which is leaving: note 15)
+- [ ] `DELETE /api/projects/:id` → `204` (owner only; soft delete; cancels its pending invites and join requests: note 16)
 - [ ] `GET /api/students/:id/contact` → `Contact`, or `403 contact_locked`
 
 **Step 4. Open teams**
@@ -215,8 +223,10 @@ The full list is [`data-model.md` → Visibility and privacy rules](data-model.m
 
 - [ ] `/api/projects` lists only projects you are a member of; any `/api/projects/:id…` call from a
       non-member answers `404` (never confirms that a project exists).
-- [ ] Members invite; only the owner removes; the owner can't be removed; nobody joins without an accepted
-      invite or an accepted join request.
+- [ ] Members invite; only the owner removes others or deletes the project; any other member may leave; the owner
+      can't be removed and can't leave; nobody joins without an accepted invite or an accepted join request.
+- [ ] A deleted project answers `404` everywhere and is in no list; its pending invites and join requests are
+      `canceled`. A member who left still counts as a past teammate for reviews.
 - [ ] `size` is 2–8 and never below the member count; at most 10 projects per student.
 - [ ] Ignore client-sent `id`, `ownerId`, `memberIds` and `createdAt`; trim text and collapse inner spaces.
 
@@ -241,6 +251,8 @@ several places, so write it in plain English.
 | `POST /api/projects` | Any error with `fields`, keyed `course`, `project`, `size`, `requiredRoles`, `goal`, `pace` (each message shows under its field); `409 project_limit` | Generic "Couldn't create the project" |
 | `POST /api/projects/:id/invites` | `409 already_invited` is shown as "Invite sent ✓", like a fresh `pending` invite | A toast: "Couldn't invite Priya. {message}" |
 | Remove, request, cancel | none | A toast, e.g. "Couldn't remove Jordan. {message}" |
+| Leave (`DELETE …/members/<your id>`) | `403 not_owner` (today's backend) → "Leaving a project isn't available on the server yet."; `400 cannot_remove_owner` → "Owners can't leave their own project."; `404 not_found` → the project leaves the list: "You're no longer on {project}." Nothing changes for the first two | "Couldn't leave {project}. {message}" |
+| `DELETE /api/projects/:id` | `405`, a `404` without a JSON `error`, or a failed preflight while `GET /api/me` answers → "Deleting a project isn't available on the server yet." (nothing changes); `403 not_owner` → "Only the owner can delete {project}."; `404 not_found` → treated as already deleted: "{project} was already deleted." | "Couldn't delete {project}. {message}" |
 | `PUT /api/me` (profile save) | `401`: the sign-in prompt, with "A draft saved on this device comes back when you sign in with the same UF email." `409 username_taken`, or `400 validation` with `fields.username`: the message under the Username field, focus there, and "Your profile wasn't saved. Fix the username above and press Finish again." | Inline alert on the form: "Couldn't save your profile. Your answers are still here…"; nothing is lost |
 | `GET /api/students?q=`, `GET /api/team-posts?q=` | none | "Search isn't working right now", your `message` (or "Couldn't reach the server."), Try again and Clear search; the count says "Search failed." |
 | `GET /api/courses` | none | Any failure: New project shows the free-text Course field, no error banner |
@@ -362,6 +374,66 @@ route):
     outside the four, asks "Pick your major." before sending, and shows `fields.name`, `fields.major` and
     `fields.year` under their field (any other `fields.<key>` is named in the bar). Nothing to do unless you want to
     migrate old rows.
+15. **Leaving a project (10/29).** We agreed the owner removes people and people can remove themselves. The frontend's
+    "Leave project" (My team, only for members who don't own the project) sends the existing
+    `DELETE /api/projects/:id/members/:studentId` with the caller's own id (`api.leaveProject`). Today `remove_member`
+    answers `403 not_owner`, which the frontend shows as "Leaving a project isn't available on the server yet." The
+    change: in `remove_member`, right after the `404` member check and **before** the `not_owner` check, allow
+    `student_id == me.id` when `me` is not the owner, delete that membership and answer `204`:
+
+    ```python
+    # Leaving: any member who isn't the owner may remove themselves.
+    if student_id == me.id and team.owner_id != me.id:
+        membership = Membership.query.filter_by(team_id=project_id, student_id=me.id).first()
+        db.session.delete(membership)
+        db.session.commit()
+        return "", 204
+
+    if team.owner_id != me.id:
+        return jsonify({"error": "not_owner"}), 403
+    ```
+
+    The owner leaving stays `400 cannot_remove_owner` (the existing `student_id == team.owner_id` check, reached
+    because the owner passes `not_owner`); they can delete the project instead (note 16). A member who leaves counts as
+    a **past teammate** for reviews (contract §3: "any `Membership` row … past or present"). Deleting the row, as the
+    owner's remove does today, loses that, so when the reviews route lands, keep a record of ended memberships (for
+    example a `left_at` column that member lists, `GET /api/projects`, contact unlock and team posts ignore, set here
+    instead of deleting) and check eligibility against it; the same goes for members the owner removes. A plain-English
+    `message` on these errors would help other clients; the frontend has its own copy for each code.
+16. **Deleting a project (10/29).** You noted deleting a team was never built. The frontend's "Delete project" (My team,
+    owner only, after a confirm dialog) sends `DELETE /api/projects/:id` (`api.deleteProject`) and expects `204`,
+    `403 not_owner` or `404 not_found`. Today there's no such route (Flask's HTML `404`, or `405`, or a failed CORS
+    preflight), which the frontend shows as "Deleting a project isn't available on the server yet." Suggested:
+    **soft delete**, so existing reviews (`Review.teamId`) still point at a team and everyone who was on it stays
+    eligible to review each other (contract §3). Note that `Team.memberships` has `cascade="all, delete-orphan"`, so
+    `db.session.delete(team)` would erase the memberships too.
+
+    ```python
+    # models.py, class Team
+    deleted_at = db.Column(db.String, nullable=True)  # ISO string; set = deleted
+
+    # routes.py
+    @main.route("/api/projects/<project_id>", methods=["DELETE"])
+    def delete_project(project_id):
+        me = current_student()
+        if not me:
+            return jsonify({"error": "not_signed_in"}), 401
+        team = Team.query.get(project_id)
+        if not team or team.deleted_at or me.id not in team.member_ids:
+            return jsonify({"error": "not_found"}), 404
+        if team.owner_id != me.id:
+            return jsonify({"error": "not_owner"}), 403
+        team.deleted_at = datetime.now(timezone.utc).replace(tzinfo=None).isoformat() + "Z"
+        Invite.query.filter_by(project_id=team.id, status="pending").update({"status": "canceled"})
+        JoinRequest.query.filter_by(post_id=team.id, status="pending").update({"status": "canceled"})
+        db.session.commit()
+        return "", 204
+    ```
+
+    Then hide deleted teams everywhere (`Team.deleted_at.is_(None)`): `GET /api/projects`, `GET /api/team-posts`, every
+    `/api/projects/:id…` route (`404`, as for non-members), contact unlock (a deleted project no longer counts as shared),
+    accepting an invite or join request to it (`404`), and the duplicate-name and 10-project checks in
+    `POST /api/projects`. Membership rows stay for the review check.
 
 Checked on 10/28 against the backend at the time (HEAD and `origin/main` 737acda): with no `username` key the frontend's `PUT /api/me` body is
 exactly `name, major, year, roles, skills, availability, weeklyHours, responseTime, channel, workMode, goal, pace,

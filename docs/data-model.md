@@ -21,6 +21,12 @@ has none of it yet: no `username` key on `GET /api/me` hides usernames, a failin
 free-text Course field, a missing reviews route shows "Reviews aren't available yet", and every search answer is
 filtered again on the client.
 
+**Leaving and deleting a project (10/29, agreed in the team chat):** a member who doesn't own a project can leave it
+(the same `DELETE /api/projects/:id/members/:studentId`, with their own id) and the owner can delete it
+(`DELETE /api/projects/:id`, new). Today's backend has neither: the frontend then says "Leaving a project isn't available
+on the server yet." / "Deleting a project isn't available on the server yet." and changes nothing. The exact backend
+changes are in [`backend-handoff.md` section 10](backend-handoff.md#10-frontend-notes-for-luka), notes 15 and 16.
+
 ## Conventions
 
 - JSON keys are `camelCase`; enum values are `snake_case` strings (`strong_grade`, `late_evening`).
@@ -152,7 +158,7 @@ One project = one team. The type keeps the name `Team`.
 | `project` | string | project name, 2–60 chars after trimming |
 | `course` | CourseCode | iteration 3: one of `GET /api/courses`, uppercase, no spaces (e.g. `"CIS4301"`), [contract §1](iteration-3/contract-additions.md#1-course-codes). Older rows may still hold free text; the frontend shows `course` as stored |
 | `size` | number | target size **including** the owner, 2–8; never below the member count |
-| `ownerId` | string | who created it; always in `memberIds`; the only one who can remove members |
+| `ownerId` | string | who created it; always in `memberIds`; the only one who can remove others or delete the project, and the one member who can't leave |
 | `memberIds` | string[] | accepted members only, in join order, owner first. Pending invites and requests are not members |
 | `requiredRoles` | Role[] | roles the team must cover; members' profile roles tick them off |
 | `goal` | Goal | |
@@ -233,8 +239,9 @@ Limits: `MIN_TEAM_SIZE = 2`, `MAX_TEAM_SIZE = 8`, `MAX_PROJECTS = 10` (projects 
    revealed only after a correct code.
 6. **Session cookie** `HttpOnly; Secure; SameSite=Lax`, set by `POST /api/auth/verify`.
 7. **Projects.** `/api/projects` lists only projects you are a member of. Any `/api/projects/:id…` call from a
-   non-member answers `404` (never confirms a project exists). Members invite; only the owner removes; nobody
-   joins without an accepted invite or accepted join request.
+   non-member answers `404` (never confirms a project exists). Members invite; only the owner removes others or
+   deletes the project; any other member may leave; nobody joins without an accepted invite or accepted join request.
+   A deleted project behaves like one that never existed: `404` everywhere, in no list.
 8. **Availability** goes to signed-in UF users only and is unrelated to email visibility.
 9. **Team posts** list only teams with open spots and never a team you are in.
 10. **Usernames** are public to signed-in users and never derived from the email (see Usernames).
@@ -407,10 +414,55 @@ invited again afterwards.
 **Automatic cancel.** When a team reaches its size (an invite or a join request was accepted), every other pending
 invite from it becomes `canceled` in the same transaction. Removing a member later doesn't bring them back.
 
-#### `DELETE /api/projects/:id/members/:studentId` · `api.removeMember`
+#### `DELETE /api/projects/:id/members/:studentId` · `api.removeMember`, `api.leaveProject`
 
-→ `204`. Owner only. Errors: `403 not_owner` · `400 cannot_remove_owner` · `404`.
-Removing someone ends their access to your email (and yours to theirs) unless another project is shared.
+→ `204`. Two uses:
+
+- **Remove** (`api.removeMember`, the × on My team, shown only to the owner): the owner removes another member.
+- **Leave** (`api.leaveProject`, "Leave project" on My team, shown only to members who don't own the project, 10/29):
+  `:studentId` is the caller's own id. A member who isn't the owner may always remove themselves.
+
+Order of checks: non-member → `404` · `:studentId` is you and you aren't the owner → delete your membership, `204` ·
+you aren't the owner → `403 not_owner` · `:studentId` is the owner (also the owner leaving) → `400 cannot_remove_owner`
+(an owner deletes the project instead) · not a member → `404`.
+
+Removing or leaving ends email access between that student and the rest of the team unless another project is shared
+(rule 2). A member who leaves (or is removed) still counts as a **past teammate** for reviews ([contract
+§3](iteration-3/contract-additions.md#3-reviews): "any `Membership` row … past or present"), so the review check must
+still find that membership after it ends (backend-handoff.md section 10, note 15).
+
+Frontend: today's backend answers a self-removal with `403 not_owner`; the frontend reads that as "not built yet",
+says "Leaving a project isn't available on the server yet." and changes nothing. `400 cannot_remove_owner` → "Owners
+can't leave their own project." `404 not_found` → you're not on it any more: it leaves your projects ("You're no longer
+on {project}."). On `204` it leaves your projects (the next one becomes current, or the no-project state), its
+teammates' emails lock again unless you share another project, its compare list and pending invites are dropped, and a
+toast says "You left {project}."
+
+#### `DELETE /api/projects/:id` · `api.deleteProject` (10/29)
+
+No body → `204`. Owner only (the button shows only to the owner). Errors: `403 not_owner` · `404 not_found`
+(non-members per rule 7, or already deleted).
+
+In one transaction:
+
+- The project is gone **for every member**: it leaves `GET /api/projects`, never appears in `GET /api/team-posts`,
+  and every `/api/projects/:id…` call answers `404`.
+- Its **pending invites** become `canceled` (they leave the invitees' `GET /api/invites/mine`) and its **pending join
+  requests** become `canceled` (they leave the owner's `GET /api/projects/:id/requests`, and the requester's
+  `GET /api/requests/mine` shows them as `canceled`).
+- Contact unlock through it ends (rule 2): members who share no other project get `403 contact_locked`.
+
+Suggested: **soft delete.** Mark the team deleted (e.g. a `deleted_at` column) and hide it from every list and lookup
+instead of deleting rows. Existing reviews keep a `teamId` that still exists, and past-teammate review eligibility
+(contract §3) stays valid for everyone who was on it. Details: backend-handoff.md section 10, note 16.
+
+Frontend: "Delete project" sits at the bottom of My team, away from Find teammates, and asks first ("Delete {project}?",
+with the consequences; Cancel has focus). On `204` the project leaves your projects, Open teams and the inbox (its join
+requests), the next project becomes current (or the no-project state), emails lock again unless another project is
+shared, its compare list and pending invites are dropped, and a toast says "Deleted {project}." `404 not_found` is
+treated as already deleted. Today's backend has no such route: a `405`, a `404` without a JSON `error`, or a failed
+CORS preflight while `GET /api/me` still answers → "Deleting a project isn't available on the server yet." and nothing
+changes. `403 not_owner` → "Only the owner can delete {project}."
 
 ### Open teams and join requests
 
@@ -469,7 +521,8 @@ No body → `201 JoinRequest` (`pending`). Errors: `404` · `409 already_member`
 | POST | `/api/projects/:id/invites` | 201 Invite |
 | GET | `/api/projects/:id/invites` | 200 Invite[] |
 | DELETE | `/api/projects/:id/invites/:inviteId` | 204 |
-| DELETE | `/api/projects/:id/members/:studentId` | 204 |
+| DELETE | `/api/projects/:id/members/:studentId` | 204 (remove; leave with your own id, 10/29) |
+| DELETE | `/api/projects/:id` | 204 (owner deletes the project, 10/29) |
 | GET | `/api/team-posts` | 200 TeamPost[] |
 | GET | `/api/team-posts?q=` | 200 TeamPost[] (search, iteration 3) |
 | GET | `/api/requests/mine` | 200 JoinRequest[] |
@@ -508,4 +561,5 @@ Later: study-mode logging `POST /api/study/events`. (Reviews are `POST /api/stud
 | Search | all mock students (or `TEAM_POSTS`) through `lib/search.ts`, the contract's rules, with the usual delay | your `?q=` endpoints; the client filters the answer again with the same rules |
 | Courses | `MOCK_COURSES` (16 UF codes); unknown code → `400 fields.course` | `GET /api/courses`; if it fails, New project falls back to free text |
 | Reviews | Priya 2, Marcus 1, Aisha 1, Daniel 1 (pace: no), Noah 1 written by the viewer for Club Budget Tracker (reviewing him again → `409`); team = first shared project | `POST /api/students/:id/reviews`; without the route the dialog says "Reviews aren't available yet" |
+| Leave / delete | leaving removes you from `memberIds`; deleting removes the project and cancels its pending invites and join requests (Database Project can be deleted in a session; a reload restores it) | today: `403 not_owner` for leaving and no delete route, so the UI says each isn't available yet; once built, the same results |
 | State | in memory; a reload resets everything | persistent |

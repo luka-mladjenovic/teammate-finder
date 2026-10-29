@@ -24,6 +24,8 @@ html.theme-retro {
   --color-good-soft: #cde5e1;
   --color-warn: #8a3a00;
   --color-warn-soft: #f1dcbb;
+  --color-danger: #8f1d1d;
+  --color-danger-soft: #f0d6cc;
 
   --font-sans: Verdana, Geneva, Tahoma, Arial, sans-serif;
 

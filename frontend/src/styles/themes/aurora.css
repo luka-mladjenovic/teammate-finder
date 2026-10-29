@@ -32,6 +32,8 @@ html.theme-aurora:not(.theme-retro) {
   --color-good-soft: rgba(52, 211, 153, 0.13);
   --color-warn: #fbbf5a;
   --color-warn-soft: rgba(251, 191, 36, 0.12);
+  --color-danger: #ff8f87;
+  --color-danger-soft: rgba(248, 113, 113, 0.12);
 
   --font-sans: 'Inter', 'Plus Jakarta Sans Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 

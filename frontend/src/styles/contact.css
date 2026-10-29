@@ -69,7 +69,27 @@
 
 /* "Remove Priya from Database Project?" (reuses the preview dialog's sheet from setup.css, so every look styles it). */
 .team-confirm h2 { font-size: 18px; overflow-wrap: anywhere; }
+.team-confirm-desc { display: flex; flex-direction: column; gap: 8px; }
+.team-confirm-list { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
+.team-confirm-list li { overflow-wrap: anywhere; }
 .team-confirm-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+/* "Delete {project}" names a project of up to 60 characters: the label wraps instead of widening the sheet, in every
+   look (html + both classes beat the looks' fixed .btn heights). */
+html .setup-dialog.team-confirm .team-confirm-actions .btn { max-width: 100%; height: auto; min-height: 40px; padding-top: 8px; padding-bottom: 8px; white-space: normal; overflow-wrap: anywhere; text-align: center; }
+
+/* "Leave this project" / "Delete this project": a quiet strip under the cards, far from Find teammates at the top. */
+.team-exit { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; margin-top: var(--space-lg); padding-top: var(--space-lg); border-top: 1px solid var(--color-hairline); }
+.team-exit-text { flex: 1 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+/* A quiet label, not a section title, in every look (the looks size h2 up to 26 px). */
+.team-page .team-exit h2 { margin: 0; font-size: 15px; font-weight: 700; line-height: 1.35; letter-spacing: normal; color: var(--color-ink); }
+.team-exit p { margin: 0; max-width: 72ch; overflow-wrap: anywhere; text-wrap: pretty; }
+.team-exit-btn { flex: none; }
+/* Delete keeps each look's secondary button and only takes the danger colour (beats the looks' .btn-secondary). */
+.team-page .team-exit .btn.is-danger { color: var(--color-danger); }
+.team-page .team-exit .btn.is-danger:hover:not([aria-disabled='true']) { background-color: var(--color-danger-soft); }
+/* Delete project's confirm button: red on a soft red fill, readable in every look (the look tokens are tuned for text). */
+.team-confirm .btn.btn-danger { background: var(--color-danger-soft); color: var(--color-danger); border-color: currentColor; }
+.team-confirm .btn.btn-danger:hover { box-shadow: inset 0 0 0 1px currentColor; }
 .members-head h3:focus { outline: none; }
 .members-head h3:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; border-radius: 4px; }
 .slot-who { min-width: 0; }
@@ -97,6 +117,7 @@
   .contact-row .contact-actions .btn { min-height: 40px; padding: 0 14px; }
   .contact-locked-body .btn { min-height: 40px; }
   .team-confirm-actions .btn { flex: 1 1 auto; }
+  .team-exit-btn { min-height: 40px; }
 }
 @media (max-width: 480px) {
   .team-page .slots { grid-template-columns: 1fr; gap: 8px; }
