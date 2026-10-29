@@ -110,8 +110,15 @@ def get_students():
     my_teams = Team.query.join(Membership).filter(Membership.student_id == me.id).all()
     teammate_ids = {sid for t in my_teams for sid in t.member_ids}
 
-    students = Student.query.filter(
-        (Student.looking_for_team == True) | (Student.id.in_(teammate_ids))).all()
+    query = Student.query.filter(
+        (Student.looking_for_team == True) | (Student.id.in_(teammate_ids))
+    )
+
+    search = (request.args.get("q") or "").strip()
+    if search:
+        query = query.filter(Student.name.ilike(f"%{search}%"))
+
+    students = query.all()
     return jsonify([s.to_dict(include_email=False) for s in students if s.id != me.id])
 
 @main.route("/api/projects", methods=["GET"])
@@ -773,4 +780,4 @@ def update_availability():
     return jsonify({
         "availability": cleaned,
         "hoursPerWeek": hours_per_week(cleaned),
-    }), 200
+    }), 200
