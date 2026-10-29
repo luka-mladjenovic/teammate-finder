@@ -273,12 +273,12 @@ def update_me():
         else:
             me.name = name
 
-        if "major" in data:
-            major = data["major"]
-            if major not in VALID_MAJORS:
-                errors["major"] = f"Major must be one of: {', '.join(sorted(VALID_MAJORS))}."
-            else:
-                me.major = major
+    if "major" in data:
+        major = data["major"]
+        if major not in VALID_MAJORS:
+            errors["major"] = f"Major must be one of: {', '.join(sorted(VALID_MAJORS))}."
+        else:
+            me.major = major
 
     if "year" in data:
         year = data["year"]
@@ -395,9 +395,6 @@ def update_me():
         else:
             me.looking_for_team = val
 
-    if errors:
-        return jsonify({"error": "validation", "fields": errors}), 400
-
     if "username" in data:
         username = (data["username"] or "").strip().lower()
         if not USERNAME_PATTERN.match(username):
@@ -411,6 +408,9 @@ def update_me():
                     "fields": {"username": "That username is taken."},
                 }), 409
             me.username = username
+            
+    if errors:
+        return jsonify({"error": "validation", "fields": errors}), 400
     
     db.session.commit()
     return jsonify(me.to_dict(include_email=True)), 200
