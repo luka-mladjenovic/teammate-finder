@@ -228,9 +228,9 @@ export function ProfileDetail() {
           )}
         </section>
 
-        <ReviewsCard student={s} isSelf={isSelf} />
-
         {!unlocked && contact}
+
+        <ReviewsCard student={s} isSelf={isSelf} />
       </div>
     </motion.div>
   )
@@ -246,7 +246,7 @@ function ReviewsCard({ student: s, isSelf }: { student: Student; isSelf: boolean
   const totals = claimTotals(s.reviews)
   const notes = reviewNotes(s.reviews)
   return (
-    <section className="card" aria-labelledby="reviews-title">
+    <section className="card reviews-card" aria-labelledby="reviews-title">
       <h3 id="reviews-title">Reviews from teammates</h3>
       {n === 0 ? (
         <p className="muted small review-lead">
@@ -260,29 +260,31 @@ function ReviewsCard({ student: s, isSelf }: { student: Student; isSelf: boolean
             {n} anonymous review{n === 1 ? '' : 's'}: did {isSelf ? 'your' : `${first}'s`} profile match how{' '}
             {isSelf ? 'you' : 'they'} really worked?
           </p>
-          <ul className="coverage review-totals">
-            {totals.map((t) => {
-              const all = t.yes === t.n
-              return (
-                <li key={t.key} className={all ? 'covered' : 'missing'}>
-                  <span className="reason-icon" aria-hidden="true">{all ? '✓' : '!'}</span>
-                  <span>{matchedText(t)}</span>
-                </li>
-              )
-            })}
-          </ul>
-          {notes.length > 0 && (
-            <>
-              <h4 className="review-notes-title">Notes</h4>
-              <ul className="review-notes">
-                {notes.map((note) => (
-                  <li key={note.id}>
-                    <blockquote>“{note.text}”</blockquote>
+          <div className="review-body">
+            <ul className="coverage review-totals">
+              {totals.map((t) => {
+                const all = t.yes === t.n
+                return (
+                  <li key={t.key} className={all ? 'covered' : 'missing'}>
+                    <span className="reason-icon" aria-hidden="true">{all ? '✓' : '!'}</span>
+                    <span>{matchedText(t)}</span>
                   </li>
-                ))}
-              </ul>
-            </>
-          )}
+                )
+              })}
+            </ul>
+            {notes.length > 0 && (
+              <div>
+                <h4 className="review-notes-title">Notes</h4>
+                <ul className="review-notes">
+                  {notes.map((note) => (
+                    <li key={note.id}>
+                      <blockquote>“{note.text}”</blockquote>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
         </>
       )}
     </section>

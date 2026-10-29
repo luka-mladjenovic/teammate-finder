@@ -352,13 +352,32 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     searchMemo.current[kind] = found
   }, [])
 
+  /**
+   * Real API: search answers are fresher than the page-load list (someone may have set a username since), so they replace
+   * loaded rows by id, keeping reviews this session just added. The mock has no other users, so adding is enough there.
+   */
+  const upsertStudents = useCallback((people: Student[]) => {
+    if (people.length === 0) return
+    setStudents((list) => {
+      const fresh = new Map(people.map((p) => [p.id, p]))
+      const merged = list.map((s) => {
+        const f = fresh.get(s.id)
+        return f ? { ...f, reviews: s.reviews.length > f.reviews.length ? s.reviews : f.reviews } : s
+      })
+      const have = new Set(list.map((s) => s.id))
+      const add = people.filter((a, i) => !have.has(a.id) && people.findIndex((b) => b.id === a.id) === i)
+      return [...merged, ...add]
+    })
+  }, [])
+
   const searchStudents = useCallback(
     async (q: string) => {
       const found = await api.searchStudents(q)
-      addStudents(found)
+      if (USING_MOCK) addStudents(found)
+      else upsertStudents(found)
       return found
     },
-    [addStudents],
+    [addStudents, upsertStudents],
   )
   const searchTeamPosts = useCallback((q: string) => api.searchTeamPosts(q), [])
 

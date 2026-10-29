@@ -70,3 +70,9 @@ html.theme-soft .coverage.review-totals li:is(.covered, .missing) { padding: 2px
 html.theme-aurora:not(.theme-retro) .review-notes blockquote { border-left-color: rgba(255, 255, 255, 0.18); }
 html.theme-glass:not(.theme-retro) .review-notes blockquote { border-left-color: rgba(17, 17, 40, 0.16); }
 html.theme-soft .review-notes blockquote { border-left: 3px solid var(--soft-line); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; background: var(--color-surface-soft); }
+
+/* Profile page: Reviews takes the last row on its own, totals beside the notes, so it doesn't stretch Skills and Past work. */
+.profile-grid > .reviews-card { grid-column: 1 / -1; }
+.review-body { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: 12px var(--space-xl); align-items: start; }
+.review-body > * { min-width: 0; }
+.review-body .review-notes-title { margin-top: 10px; }
