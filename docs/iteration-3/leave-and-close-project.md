@@ -14,12 +14,12 @@ DELETE /api/projects/<project_id>/members/<student_id>
 
 Rules:
 - `student_id` == caller's own id, and caller is **not** the owner → leaving. Deletes their `Membership` row. Allowed.
-- `student_id` == caller's own id, and caller **is** the owner → rejected:
+- `student_id` == caller's own id, and caller **is** the owner → rejected with the **existing** error code, reused from the owner-removal case (don't invent a new one — the frontend already expects this exact string):
   ```json
   // 400
   {
-    "error": "owner_cannot_leave",
-    "message": "Transfer or close the project instead of leaving."
+    "error": "cannot_remove_owner",
+    "message": "The owner can't leave their own project."
   }
   ```
 - `student_id` != caller's own id → unchanged, owner-only removal of someone else.
@@ -38,11 +38,18 @@ DELETE /api/projects/<project_id>
 ```
 
 - **Hard delete.** Removes the `Team` row entirely — no soft-delete/archive.
-- Must cascade-delete everything that points at it:
+- Must explicitly delete everything that points at it, **before** deleting the `Team` row:
   - all `Membership` rows for that team
-  - all pending `Invite` rows for that team
-  - all pending `JoinRequest` rows for that team
-- Model note: make sure those relationships on `Team` have `cascade="all, delete-orphan"` set — same pattern already used for `memberships`. Without it you'll get orphaned rows or a foreign-key error on delete.
+  - all `Invite` rows for that team
+  - all `JoinRequest` rows for that team (field is `post_id`, not `project_id`, on this model)
+
+  `Membership` already has `cascade="all, delete-orphan"` on `Team`, so deleting the team would clean those up automatically — but `Invite` and `JoinRequest` do **not** have a declared relationship on `Team` (just plain foreign-key-ish columns, and `JoinRequest.post_id` isn't even a real FK constraint), so there's nothing for SQLAlchemy to cascade. Delete them explicitly by query instead of relying on cascade:
+  ```python
+  Invite.query.filter_by(project_id=project_id).delete()
+  JoinRequest.query.filter_by(post_id=project_id).delete()
+  db.session.delete(team)
+  db.session.commit()
+  ```
 - This is what frees up a slot against the per-user project cap. Right now there's no way to shed a project once created, so people get stuck at the cap with no way to free space.
 
 Errors:
