@@ -23,6 +23,7 @@ VALID_ROLES = {"lead", "frontend", "backend", "design", "docs", "testing"}
 VALID_WORK_MODES = {"online", "in_person"}
 
 SLOT_KEY_PATTERN = re.compile(r"^(mon|tue|wed|thu|fri|sat|sun)-(morning|afternoon|early_evening|late_evening|night)$")
+USERNAME_PATTERN = re.compile(r"^[a-z0-9_]{3,20}$")
 
 DAY_ORDER = {"mon": 0, "tue": 1, "wed": 2, "thu": 3, "fri": 4, "sat": 5, "sun": 6}
 BLOCK_ORDER = {"morning": 0, "afternoon": 1, "early_evening": 2, "late_evening": 3, "night": 4}
@@ -116,7 +117,9 @@ def get_students():
 
     search = (request.args.get("q") or "").strip()
     if search:
-        query = query.filter(Student.name.ilike(f"%{search}%"))
+        query = query.filter(
+            Student.name.ilike(f"%{search}%") | Student.username.ilike(f"%{search}%")
+        )
 
     students = query.all()
     return jsonify([s.to_dict(include_email=False) for s in students if s.id != me.id])
@@ -394,6 +397,20 @@ def update_me():
 
     if errors:
         return jsonify({"error": "validation", "fields": errors}), 400
+
+    if "username" in data:
+        username = (data["username"] or "").strip().lower()
+        if not USERNAME_PATTERN.match(username):
+            errors["username"] = "3-20 characters, letters, numbers, and underscores only."
+        else:
+            existing = Student.query.filter(Student.username == username, Student.id != me.id).first()
+            if existing:
+                return jsonify({
+                    "error": "username_taken",
+                    "message": "That username is taken.",
+                    "fields": {"username": "That username is taken."},
+                }), 409
+            me.username = username
     
     db.session.commit()
     return jsonify(me.to_dict(include_email=True)), 200
