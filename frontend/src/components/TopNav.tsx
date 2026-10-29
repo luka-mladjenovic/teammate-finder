@@ -12,8 +12,28 @@ const PAGES = [
   { to: '/find', label: 'Find teammates' },
   { to: '/team', label: 'My team' },
   { to: '/teams', label: 'Open teams' },
+  { to: '/inbox', label: 'Inbox' },
   { to: '/profile/setup', label: 'My profile' },
 ]
+
+/** Invites and join requests waiting for an answer, shown on the Inbox link. 0 hides it. */
+function useInboxBadge() {
+  const { session, inboxCount } = useAppData()
+  return session === 'signed_in' ? inboxCount : 0
+}
+
+/** "Inbox" plus its count. The count is part of the link's name: "Inbox, 3 waiting". */
+function PageLabel({ to, label }: { to: string; label: string }) {
+  const count = useInboxBadge()
+  if (to !== '/inbox' || count === 0) return <>{label}</>
+  return (
+    <>
+      {label}
+      <span className="nav-badge" aria-hidden="true">{count > 9 ? '9+' : count}</span>
+      <span className="sr-only">, {count} waiting</span>
+    </>
+  )
+}
 
 /**
  * A button that shows and hides a panel (a disclosure, not an ARIA menu). Esc or a click outside closes it
@@ -67,13 +87,14 @@ function useDisclosure() {
 function PageMenu() {
   const panelId = useId()
   const { open, setOpen, buttonRef, wrapProps } = useDisclosure()
+  const waiting = useInboxBadge()
   return (
     <div className="topnav-menu" {...wrapProps}>
       <button
         ref={buttonRef}
         type="button"
         className="topnav-menu-btn"
-        aria-label="Menu"
+        aria-label={waiting ? `Menu, ${waiting} waiting in your inbox` : 'Menu'}
         aria-expanded={open}
         aria-controls={panelId}
         onClick={() => setOpen(!open)}
@@ -83,11 +104,12 @@ function PageMenu() {
           <path className="topnav-menu-bar topnav-menu-bar-2" d="M3.5 10h13" />
           <path className="topnav-menu-bar topnav-menu-bar-3" d="M3.5 14h13" />
         </svg>
+        {waiting > 0 && <span className="nav-dot" aria-hidden="true" />}
       </button>
       <nav id={panelId} className="topnav-panel topnav-menu-panel" aria-label="Main" hidden={!open}>
         {PAGES.map((p) => (
           <NavLink key={p.to} to={p.to} className="topnav-menu-link" onClick={() => setOpen(false)}>
-            {p.label}
+            <PageLabel {...p} />
           </NavLink>
         ))}
       </nav>
@@ -131,7 +153,7 @@ function AccountMenu({ onSignOut }: { onSignOut: () => void }) {
         <div className="acct-who">
           <Avatar student={viewer} size={40} />
           <div className="acct-id">
-            <strong className="acct-name">{viewer.name || 'Name not set yet'}</strong>
+            <strong className="acct-name">{viewer.name || 'New User'}</strong>
             {viewer.email && <span className="acct-email">{viewer.email}</span>}
           </div>
         </div>
@@ -175,7 +197,7 @@ export function TopNav() {
         </Link>
         <nav className="topnav-links" aria-label="Main">
           {PAGES.map((p) => (
-            <NavLink key={p.to} to={p.to}>{p.label}</NavLink>
+            <NavLink key={p.to} to={p.to}><PageLabel {...p} /></NavLink>
           ))}
         </nav>
         <div className="topnav-actions">

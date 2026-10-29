@@ -37,6 +37,7 @@ class Student(db.Model):
     pace = db.Column(db.String, default="steady")
     past_work = db.Column(db.JSON, default=list)  # [{title, url?, role}]
     looking_for_team = db.Column(db.Boolean, default=True)
+    username = db.Column(db.String, unique=True, nullable=True)
 
     def to_dict(self, include_email=False):
         data = {
@@ -57,6 +58,7 @@ class Student(db.Model):
             "pastWork": self.past_work,
             "reviews": [],  # reviews aren't built yet (Step 5 / later)
             "lookingForTeam": self.looking_for_team,
+            "username": self.username
         }
         if include_email:
             data["email"] = self.email
@@ -96,7 +98,7 @@ class Invite(db.Model):
     id = db.Column(db.String, primary_key=True, default=gen_id)
     project_id = db.Column(db.String, db.ForeignKey("team.id"), nullable=False)
     student_id = db.Column(db.String, db.ForeignKey("student.id"), nullable=False)
-    status = db.Column(db.String, default="pending")  # pending | accepted | declined
+    status = db.Column(db.String, default="pending")  # pending | accepted | declined | canceled
     created_at = db.Column(db.String, nullable=False)
 
     def to_dict(self):
@@ -119,6 +121,7 @@ class JoinRequest(db.Model):
         return {
             "id": self.id,
             "postId": self.post_id,
+            "studentId": self.student_id,
             "status": self.status,
             "createdAt": self.created_at,
         }

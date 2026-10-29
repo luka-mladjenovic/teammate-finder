@@ -5,6 +5,7 @@ import type { MatchContext } from '../lib/matching'
 import { isFull } from '../lib/projects'
 import type {
   Contact,
+  DecisionInput,
   Invite,
   JoinRequest,
   NewProject,
@@ -76,6 +77,10 @@ interface AppData {
   removeMember: (studentId: string) => Promise<boolean>
   /** Invites from the current project still waiting for an answer (real API only; the mock accepts at once). */
   pendingInvites: Invite[]
+  /** Pending invites from any of your projects, newest first (Inbox). Loaded with the inbox. */
+  sentInvites: Invite[]
+  /** Any member of the project may cancel one. Resolves false on failure (announced). */
+  cancelInvite: (invite: Invite) => Promise<boolean>
 
   // ----- Open teams. Requests live here so they survive navigation (until reload). -----
   /** Teams with open spots, never one of your projects. */
@@ -83,6 +88,24 @@ interface AppData {
   requestedPostIds: string[]
   requestToJoin: (postId: string) => Promise<boolean>
   cancelRequest: (postId: string) => Promise<boolean>
+
+  // ----- Inbox: invites to you and requests to join projects you own. Resolve false on failure (announced). -----
+  /** Pending invites to you, newest first, each with `team`. */
+  inboxInvites: Invite[]
+  /** Pending requests to join projects you own, newest first, each with `student`. */
+  inboxRequests: JoinRequest[]
+  /** Items waiting for your answer (the nav badge). */
+  inboxCount: number
+  /** True until the inbox has loaded once for this session. */
+  inboxLoading: boolean
+  /** Set when the last inbox load failed. */
+  inboxError?: string
+  /** Re-reads the inbox from the server. Quiet: no loading state after the first load. */
+  refreshInbox: () => Promise<void>
+  /** Accept adds you to the project and makes it current. */
+  respondToInvite: (invite: Invite, decision: DecisionInput) => Promise<boolean>
+  /** Owner only. Accept adds the student to that project. */
+  respondToRequest: (request: JoinRequest, decision: DecisionInput) => Promise<boolean>
 
   // ----- Contact (D2) -----
   /** Your projects that this student is also an accepted member of. */
@@ -104,6 +127,20 @@ const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e))
 /** A 401: the session-ended toast already went out (see onUnauthorized below), so callers add no toast of their own. */
 const sessionEnded = (e: unknown) => isApiError(e) && e.status === 401
 const NOTICE_MS = 3200
+
+/** Plain words for the inbox calls' error codes. Falls back to the server's message. */
+function inboxErrorText(e: unknown, project: string) {
+  if (isApiError(e)) {
+    if (e.code === 'team_full') return `${project} is full now.`
+    if (e.code === 'project_limit') return "You're already in 10 projects, the most allowed. Leave one first."
+    if (e.code === 'not_found') return 'It was withdrawn or already answered.'
+    if (e.code === 'not_owner') return 'Only the project owner can answer join requests.'
+    if (e.code === 'network_error') return "Couldn't reach the server."
+  }
+  return errorText(e)
+}
+
+const newestFirst = <T extends { createdAt: string }>(a: T, b: T) => b.createdAt.localeCompare(a.createdAt)
 
 interface Loaded {
   projects: Team[]
@@ -132,6 +169,12 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [invites, setInvites] = useState<Invite[]>([])
   const [posts, setPosts] = useState<TeamPost[]>([])
   const [requests, setRequests] = useState<JoinRequest[]>([])
+  const [inboxInvites, setInboxInvites] = useState<Invite[]>([])
+  const [inboxRequests, setInboxRequests] = useState<JoinRequest[]>([])
+  const [inboxLoading, setInboxLoading] = useState(true)
+  const [inboxError, setInboxError] = useState<string>()
+  // Like loadSeq: only the newest inbox load may apply its result.
+  const inboxSeq = useRef(0)
   const [notice, setNotice] = useState<Notice | null>(null)
   const noticeTimer = useRef<number | undefined>(undefined)
   const contactCache = useRef(new Map<string, Promise<Contact>>())
@@ -257,8 +300,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         return true
       } catch (e) {
         if (USING_MOCK) setMembers(t.id, (ids) => ids.filter((x) => x !== studentId))
-        // Sent earlier (e.g. before a reload, since nothing lists a project's pending invites): it is still
-        // waiting for an answer, so show it as sent rather than as a failure.
+        // Sent earlier (e.g. by a teammate since the inbox last loaded): it is still waiting for an answer, so
+        // show it as sent rather than as a failure.
         if (isApiError(e) && e.code === 'already_invited') {
           const inv: Invite = { id: `pending-${t.id}-${studentId}`, projectId: t.id, studentId, status: 'pending', createdAt: new Date().toISOString() }
           setInvites((list) => [...list, inv])
@@ -340,6 +383,152 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     [requests, notify],
   )
 
+  /** Owned project ids, as a string so the effect below only re-runs when that set changes. */
+  const ownedKey = useMemo(
+    () => (viewer ? projects.filter((p) => p.ownerId === viewer.id).map((p) => p.id).join(',') : ''),
+    [projects, viewer],
+  )
+  /** All your project ids: any member can see and cancel a project's invites. */
+  const projectKey = useMemo(() => projects.map((p) => p.id).join(','), [projects])
+
+  const refreshInbox = useCallback(async () => {
+    if (sessionRef.current !== 'signed_in') return
+    const seq = ++inboxSeq.current
+    const owned = ownedKey ? ownedKey.split(',') : []
+    const all = projectKey ? projectKey.split(',') : []
+    try {
+      const [invites, perProject, sentPerProject] = await Promise.all([
+        api.myInvites(),
+        // One call per project you own (at most 10). 403/404 means you no longer own it: skip it.
+        Promise.allSettled(owned.map((id) => api.projectRequests(id))),
+        // And one per project you're on, for the invites it has out.
+        Promise.allSettled(all.map((id) => api.projectInvites(id))),
+      ])
+      if (seq !== inboxSeq.current) return
+      const failed = [...perProject, ...sentPerProject].find(
+        (r): r is PromiseRejectedResult => r.status === 'rejected' && !(isApiError(r.reason) && [403, 404].includes(r.reason.status)),
+      )
+      if (failed) throw failed.reason
+      // The server's list replaces this tab's, so canceled invites drop out and ones sent before a reload show
+      // as "Invite sent" again.
+      const out = sentPerProject.flatMap((r) => (r.status === 'fulfilled' ? r.value : []))
+      setInvites(out.filter((i) => i.status === 'pending'))
+      const reqs = perProject.flatMap((r) => (r.status === 'fulfilled' ? r.value : []))
+      const people = [...reqs.flatMap((r) => (r.student ? [r.student] : [])), ...out.flatMap((i) => (i.student ? [i.student] : []))]
+      setInboxInvites(invites.filter((i) => i.status === 'pending').sort(newestFirst))
+      setInboxRequests(reqs.filter((r) => r.status === 'pending').sort(newestFirst))
+      // People asking to join or invited may not be in GET /api/students (not looking for a team). Their profile
+      // page and, once they join, My team need them in `students`.
+      if (people.length > 0) {
+        setStudents((list) => {
+          const have = new Set(list.map((x) => x.id))
+          const add = people.filter((a, i) => !have.has(a.id) && people.findIndex((b) => b.id === a.id) === i)
+          return add.length ? [...list, ...add] : list
+        })
+      }
+      setInboxError(undefined)
+    } catch (e) {
+      if (seq !== inboxSeq.current || sessionEnded(e)) return
+      setInboxError(errorText(e))
+    } finally {
+      if (seq === inboxSeq.current) setInboxLoading(false)
+    }
+  }, [ownedKey, projectKey])
+
+  // Load the inbox once data is in (for the nav badge), and again when the set of projects you're on changes.
+  const viewerId = viewer?.id
+  useEffect(() => {
+    if (loading || session !== 'signed_in' || !viewerId) return
+    void refreshInbox()
+  }, [loading, session, viewerId, refreshInbox])
+
+  const respondToInvite = useCallback(
+    async (inv: Invite, decision: DecisionInput) => {
+      const project = inv.team?.project ?? 'the project'
+      try {
+        await api.respondToInvite(inv.id, decision)
+      } catch (e) {
+        if (sessionEnded(e)) return false
+        // Gone on the server: drop it here too, so it can't be answered again.
+        if (isApiError(e) && e.code === 'not_found') setInboxInvites((list) => list.filter((i) => i.id !== inv.id))
+        notify(`Couldn't ${decision} the invite to ${project}. ${inboxErrorText(e, project)}`)
+        return false
+      }
+      setInboxInvites((list) => list.filter((i) => i.id !== inv.id))
+      if (decision === 'decline') return true
+      // You're a member now: reload your projects (and people, for the new teammates) and switch to it.
+      try {
+        const [ps, people] = await Promise.all([api.myProjects(), api.students()])
+        setProjects(ps)
+        setStudents((list) => [...people, ...list.filter((x) => !people.some((p) => p.id === x.id))])
+        if (ps.some((p) => p.id === inv.projectId)) setCurrentId(inv.projectId)
+      } catch (e) {
+        if (!sessionEnded(e)) notify(`You joined ${project}, but your projects didn't reload. Refresh the page to see it.`)
+      }
+      // A request you'd sent to the same team is settled now.
+      setRequests((rs) => rs.filter((r) => r.postId !== inv.projectId))
+      return true
+    },
+    [notify],
+  )
+
+  const respondToRequest = useCallback(
+    async (req: JoinRequest, decision: DecisionInput) => {
+      const project = projects.find((p) => p.id === req.postId)?.project ?? 'your project'
+      const who = firstName(req.student?.name ?? byId(req.studentId ?? '')?.name ?? 'them')
+      try {
+        await api.respondToRequest(req.postId, req.id, decision)
+      } catch (e) {
+        if (sessionEnded(e)) return false
+        if (isApiError(e) && e.code === 'not_found') setInboxRequests((list) => list.filter((r) => r.id !== req.id))
+        notify(`Couldn't ${decision} ${who}'s request. ${inboxErrorText(e, project)}`)
+        return false
+      }
+      setInboxRequests((list) => list.filter((r) => r.id !== req.id))
+      if (decision === 'accept' && req.studentId) {
+        const sid = req.studentId
+        setMembers(req.postId, (ids) => (ids.includes(sid) ? ids : [...ids, sid]))
+        editCompare(req.postId, (ids) => ids.filter((x) => x !== sid))
+        // Their pending invite is settled too. If that filled the team, the server canceled its other invites.
+        const t = projects.find((p) => p.id === req.postId)
+        const nowFull = t ? t.memberIds.filter((id) => id !== sid).length + 1 >= t.size : false
+        setInvites((list) => list.filter((i) => i.projectId !== req.postId || (!nowFull && i.studentId !== sid)))
+      }
+      return true
+    },
+    [projects, byId, notify, setMembers, editCompare],
+  )
+
+  const cancelInvite = useCallback(
+    async (inv: Invite) => {
+      const who = firstName(inv.student?.name ?? byId(inv.studentId)?.name ?? 'them')
+      setInvites((list) => list.filter((i) => i !== inv))
+      try {
+        let id = inv.id
+        // Known only from a 409 already_invited (see invite above): look up its real id first.
+        if (id.startsWith('pending-')) {
+          const real = (await api.projectInvites(inv.projectId)).find((i) => i.studentId === inv.studentId)
+          if (!real) return true // nothing pending any more
+          id = real.id
+        }
+        await api.cancelInvite(inv.projectId, id)
+        return true
+      } catch (e) {
+        if (sessionEnded(e)) return false
+        if (isApiError(e) && e.code === 'not_found') {
+          // Answered or canceled in the meantime. If they accepted, they're a member now: reload projects.
+          notify(`${who} already answered that invite, or it was withdrawn.`)
+          api.myProjects().then(setProjects).catch(() => {})
+          return false
+        }
+        setInvites((list) => (list.includes(inv) ? list : [...list, inv]))
+        notify(`Couldn't withdraw the invite to ${who}. ${errorText(e)}`)
+        return false
+      }
+    },
+    [byId, notify],
+  )
+
   const sharedProjectsWith = useCallback(
     (studentId: string) => (viewer ? sharedProjects(projects, viewer.id, studentId) : []),
     [projects, viewer],
@@ -364,6 +553,10 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const applySignIn = useCallback(
     (result: VerifyResult) => {
       contactCache.current.clear()
+      inboxSeq.current++
+      setInboxInvites([])
+      setInboxRequests([])
+      setInboxLoading(true)
       setViewer(result.me)
       markSession('signed_in')
       // A different account may have different projects and requests, so reload them. Until that ends the pages
@@ -388,6 +581,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   /** The signed-out state, after Sign out or a 401. */
   const dropSession = useCallback(() => {
     loadSeq.current++ // a load still running belongs to the old session
+    inboxSeq.current++
     setLoading(false)
     contactCache.current.clear()
     markSession('signed_out')
@@ -401,6 +595,10 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       setPosts([])
       setRequests([])
       setInvites([])
+      setInboxInvites([])
+      setInboxRequests([])
+      setInboxError(undefined)
+      setInboxLoading(true)
       setCompareBy({})
       setCurrentId(undefined)
     }
@@ -453,6 +651,11 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     [requests],
   )
 
+  const sentInvites = useMemo(
+    () => invites.filter((i) => i.status === 'pending').sort(newestFirst),
+    [invites],
+  )
+
   const pendingInvites = useMemo(
     () => invites.filter((i) => i.status === 'pending' && i.projectId === teamId),
     [invites, teamId],
@@ -481,10 +684,20 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     invite,
     removeMember,
     pendingInvites,
+    sentInvites,
+    cancelInvite,
     teamPosts,
     requestedPostIds,
     requestToJoin,
     cancelRequest,
+    inboxInvites,
+    inboxRequests,
+    inboxCount: inboxInvites.length + inboxRequests.length,
+    inboxLoading,
+    inboxError,
+    refreshInbox,
+    respondToInvite,
+    respondToRequest,
     sharedProjectsWith,
     canSeeEmail,
     getContact,
