@@ -43,6 +43,10 @@ MIN_TEAM_SIZE = 2
 MAX_TEAM_SIZE = 8
 MAX_PROJECTS = 10
 
+DEMO_ALLOWED_EMAILS = {
+    e.strip().lower() for e in os.environ.get("DEMO_ALLOWED_EMAILS", "").split(",") if e.strip()
+}
+
 main = Blueprint("main", __name__)
 
 def hours_per_week(slots):
@@ -190,7 +194,12 @@ def request_email_code():
         return jsonify({"error": "invalid_email", "message": "Email is required."}), 422
     if not EMAIL_PATTERN.match(email):
         return jsonify({"error": "not_ufl_email", "message": "Use your @ufl.edu email."}), 422
-
+    if os.environ.get("DEMO_MODE") == "true" and email not in DEMO_ALLOWED_EMAILS:
+        return jsonify({
+            "error": "not_ufl_email",
+            "message": "This is a limited evaluation. Contact the team if you should have access.",
+        }), 422
+    
     now = datetime.now(timezone.utc).replace(tzinfo=None)
 
     # rate limit: at most 1 code per 30s, 5 per hour, for this email
