@@ -1,13 +1,26 @@
+import app
 import os
 from dotenv import load_dotenv
 load_dotenv()
 
-from flask import Flask
+from flask import Flask, send_from_directory, abort
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from datetime import timedelta
 
 db = SQLAlchemy()
+
+FRONTEND_DIST = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")
+
+@app.route("/", defaults={"path": ""})
+@app.route("/<path:path>")
+def serve_frontend(path):
+    if path.startswith("api/"):
+        abort(404)
+    full_path = os.path.join(FRONTEND_DIST, path)
+    if path and os.path.isfile(full_path):
+        return send_from_directory(FRONTEND_DIST, path)
+    return send_from_directory(FRONTEND_DIST, "index.html")
 
 def create_app():
     app = Flask(__name__)
