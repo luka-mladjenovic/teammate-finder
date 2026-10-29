@@ -18,6 +18,7 @@ class Challenge(db.Model):
     expires_at = db.Column(db.DateTime, nullable=False)
     resend_after = db.Column(db.DateTime, nullable=False)
     used = db.Column(db.Boolean, default=False)
+    name = db.Column(db.String, nullable=True)
 
 class Student(db.Model):
     id = db.Column(db.String, primary_key=True, default=gen_id)
