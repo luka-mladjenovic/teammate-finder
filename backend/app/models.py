@@ -37,6 +37,7 @@ class Student(db.Model):
     pace = db.Column(db.String, default="steady")
     past_work = db.Column(db.JSON, default=list)  # [{title, url?, role}]
     looking_for_team = db.Column(db.Boolean, default=True)
+    username = db.Column(db.String, unique=True, nullable=True)
 
     def to_dict(self, include_email=False):
         data = {
@@ -57,6 +58,7 @@ class Student(db.Model):
             "pastWork": self.past_work,
             "reviews": [],  # reviews aren't built yet (Step 5 / later)
             "lookingForTeam": self.looking_for_team,
+            "username": self.username
         }
         if include_email:
             data["email"] = self.email
@@ -130,4 +132,4 @@ class Membership(db.Model):
     student_id = db.Column(db.String, db.ForeignKey("student.id"), nullable=False)
     joined_at = db.Column(db.String, nullable=False)  # ISO string, so we can order by it
 
-    __table_args__ = (db.UniqueConstraint("team_id", "student_id"),)
+    __table_args__ = (db.UniqueConstraint("team_id", "student_id"),)
