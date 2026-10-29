@@ -5,16 +5,20 @@ import { USING_MOCK } from '../api'
 import { AvailabilityGrid } from '../components/AvailabilityGrid'
 import { Avatar } from '../components/Avatar'
 import { ContactCard } from '../components/ContactCard'
+import { Handle } from '../components/Handle'
 import { MatchReasons } from '../components/MatchReasons'
+import { ReviewButton } from '../components/ReviewDialog'
 import { SignedOutPage } from '../components/SignedOutPage'
 import { celebrateIfFull } from '../fun/celebrate'
-import { CHANNEL_LABEL, GOAL_LABEL, PACE_LABEL, RESPONSE_LABEL, REVIEW_TAG_LABEL, ROLE_LABEL, WEEKLY_HOURS_LABEL, WORK_MODE_LABEL } from '../labels'
+import { CHANNEL_LABEL, GOAL_LABEL, PACE_LABEL, RESPONSE_LABEL, ROLE_LABEL, WEEKLY_HOURS_LABEL, WORK_MODE_LABEL } from '../labels'
 import { formatH, formatHours } from '../lib/availability'
 import { firstName, joinWords } from '../lib/contact'
 import { commonSlots, isSolo, matchReasons, MIN_SHARED_HOURS, sharedHours } from '../lib/matching'
 import { isFull } from '../lib/projects'
+import { claimTotals, matchedText, reviewNotes } from '../lib/reviews'
 import { useArrivalFocus } from '../lib/useArrivalFocus'
 import { MAX_COMPARE, useAppData } from '../state/AppData'
+import type { Student } from '../types'
 
 export function ProfileDetail() {
   const { id = '' } = useParams()
@@ -62,7 +66,11 @@ export function ProfileDetail() {
   // Only you in the project: shared time is your own free time, so the wording says "you".
   const solo = matchCtx ? isSolo(matchCtx) : false
   const withWhom = solo ? 'you' : 'your team'
-  const otherProjects = sharedProjectsWith(s.id).filter((p) => p.id !== team?.id)
+  const shared = sharedProjectsWith(s.id)
+  const otherProjects = shared.filter((p) => p.id !== team?.id)
+  // Anyone you're on a project with can be reviewed (never yourself).
+  const canReview = !isSelf && shared.length > 0
+  const inviteActions = !isSelf && !isMember && Boolean(team)
   const contact = <ContactCard student={s} justUnlocked={justUnlocked} />
 
   const handleInvite = async () => {
@@ -88,6 +96,7 @@ export function ProfileDetail() {
         <Avatar student={s} size={72} />
         <div className="stack" style={{ gap: 4 }}>
           <h1 ref={headingRef} tabIndex={-1}>{s.name}</h1>
+          <Handle student={s} />
           <div className="muted small">{s.major} · {s.year}{s.emailVerified ? ' · ✓ UF email verified' : ''}</div>
           <div className="chips">
             {s.roles.map((r, i) => (
@@ -100,34 +109,42 @@ export function ProfileDetail() {
           )}
         </div>
         <span className="spacer" />
-        {!isSelf && !isMember && team && (
+        {(inviteActions || canReview) && (
           <div className="profile-actions">
             <div className="row">
-              <button
-                className="btn btn-secondary"
-                disabled={!comparing && compareIds.length >= MAX_COMPARE}
-                onClick={() => toggleCompare(s.id)}
-              >
-                {comparing ? 'In comparison ✓' : 'Add to comparison'}
-              </button>
-              {invited ? (
-                // aria-disabled keeps focus on the button that was just pressed.
-                <button type="button" className="btn btn-sent" aria-disabled="true" aria-label={`Invite sent to ${s.name} for ${team.project}`}>
-                  Invite sent <span aria-hidden="true">✓</span>
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  disabled={teamFull}
-                  aria-describedby={teamFull ? 'profile-full-note' : undefined}
-                  onClick={() => void handleInvite()}
-                >
-                  Invite to {team.project}
-                </button>
+              {inviteActions && team && (
+                <>
+                  <button
+                    className="btn btn-secondary"
+                    disabled={!comparing && compareIds.length >= MAX_COMPARE}
+                    onClick={() => toggleCompare(s.id)}
+                  >
+                    {comparing ? 'In comparison ✓' : 'Add to comparison'}
+                  </button>
+                  {invited ? (
+                    // aria-disabled keeps focus on the button that was just pressed.
+                    <button type="button" className="btn btn-sent" aria-disabled="true" aria-label={`Invite sent to ${s.name} for ${team.project}`}>
+                      Invite sent <span aria-hidden="true">✓</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      disabled={teamFull}
+                      aria-describedby={teamFull ? 'profile-full-note' : undefined}
+                      onClick={() => void handleInvite()}
+                    >
+                      Invite to {team.project}
+                    </button>
+                  )}
+                </>
               )}
+              {/* Secondary to Compare and Invite, so it comes after them, at the same size. */}
+              {canReview && <ReviewButton student={s} label={`Review ${first}`} size="md" />}
             </div>
-            {teamFull && <span id="profile-full-note" className="tiny muted">{team.project} is full ({team.memberIds.length}/{team.size})</span>}
+            {inviteActions && team && teamFull && (
+              <span id="profile-full-note" className="tiny muted">{team.project} is full ({team.memberIds.length}/{team.size})</span>
+            )}
           </div>
         )}
         {!isSelf && !team && (
@@ -186,9 +203,13 @@ export function ProfileDetail() {
 
         <section className="card">
           <h3>Skills</h3>
-          <div className="chips" style={{ marginTop: 8 }}>
-            {s.skills.map((k) => <span key={k} className="chip">{k}</span>)}
-          </div>
+          {s.skills.length === 0 ? (
+            <p className="muted small">No skills added yet.</p>
+          ) : (
+            <div className="chips" style={{ marginTop: 8 }}>
+              {s.skills.map((k) => <span key={k} className="chip">{k}</span>)}
+            </div>
+          )}
         </section>
 
         <section className="card">
@@ -207,27 +228,65 @@ export function ProfileDetail() {
           )}
         </section>
 
-        <section className="card">
-          <h3>Reviews from past teammates</h3>
-          {s.reviews.length === 0 ? (
-            <p className="muted small">No reviews yet. Reviews appear after a team formed here finishes its project.</p>
-          ) : (
-            <ul className="plain-list">
-              {s.reviews.map((r) => (
-                <li key={r.id}>
-                  <div className="chips">
-                    {r.tags.map((t) => <span key={t} className="chip chip-primary">{REVIEW_TAG_LABEL[t]}</span>)}
-                  </div>
-                  {r.note && <p className="small" style={{ margin: '6px 0 0' }}>“{r.note}”</p>}
-                  <div className="tiny muted">{r.project}</div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-
         {!unlocked && contact}
+
+        <ReviewsCard student={s} isSelf={isSelf} />
       </div>
     </motion.div>
+  )
+}
+
+/**
+ * "Reviews from teammates" (current or past): anonymous totals per claim and the notes, newest first, with no reviewer, date or
+ * project (iteration 3, docs/iteration-3/search-and-usernames.md E).
+ */
+function ReviewsCard({ student: s, isSelf }: { student: Student; isSelf: boolean }) {
+  const first = firstName(s.name)
+  const n = s.reviews.length
+  const totals = claimTotals(s.reviews)
+  const notes = reviewNotes(s.reviews)
+  return (
+    <section className="card reviews-card" aria-labelledby="reviews-title">
+      <h3 id="reviews-title">Reviews from teammates</h3>
+      {n === 0 ? (
+        <p className="muted small review-lead">
+          {isSelf
+            ? "No reviews yet. People who've been on a project with you can say whether your profile matched how you worked."
+            : `No reviews yet. People who've been on a project with ${first} can say whether this profile matched how they worked.`}
+        </p>
+      ) : (
+        <>
+          <p className="muted small review-lead">
+            {n} anonymous review{n === 1 ? '' : 's'}: did {isSelf ? 'your' : `${first}'s`} profile match how{' '}
+            {isSelf ? 'you' : 'they'} really worked?
+          </p>
+          <div className="review-body">
+            <ul className="coverage review-totals">
+              {totals.map((t) => {
+                const all = t.yes === t.n
+                return (
+                  <li key={t.key} className={all ? 'covered' : 'missing'}>
+                    <span className="reason-icon" aria-hidden="true">{all ? '✓' : '!'}</span>
+                    <span>{matchedText(t)}</span>
+                  </li>
+                )
+              })}
+            </ul>
+            {notes.length > 0 && (
+              <div>
+                <h4 className="review-notes-title">Notes</h4>
+                <ul className="review-notes">
+                  {notes.map((note) => (
+                    <li key={note.id}>
+                      <blockquote>“{note.text}”</blockquote>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </section>
   )
 }

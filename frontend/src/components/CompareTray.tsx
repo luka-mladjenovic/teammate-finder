@@ -8,6 +8,7 @@ import { isFull } from '../lib/projects'
 import type { Student } from '../types'
 import { Avatar } from './Avatar'
 import { AvailabilityGrid } from './AvailabilityGrid'
+import { Handle } from './Handle'
 import { MatchReasons } from './MatchReasons'
 
 interface Props {
@@ -116,7 +117,10 @@ export function CompareTray({ people, ctx, teamFull, invitedIds = [], onRemove, 
                     {people.map((p) => (
                       <div key={p.id} className="compare-head" role="columnheader">
                         <Avatar student={p} size={36} />
-                        <strong className="small">{p.name}</strong>
+                        <span className="compare-who">
+                          <strong className="small">{p.name}</strong>
+                          <Handle student={p} />
+                        </span>
                       </div>
                     ))}
                   </div>

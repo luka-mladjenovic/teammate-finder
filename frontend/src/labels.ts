@@ -1,4 +1,4 @@
-import type { Channel, Day, Goal, Pace, ResponseTime, ReviewTag, Role, Slot, WeeklyHours, WorkMode } from './types'
+import type { Channel, Day, Goal, Pace, ResponseTime, Role, Slot, WeeklyHours, WorkMode } from './types'
 
 export const ROLE_LABEL: Record<Role, string> = {
   lead: 'Team lead',
@@ -60,14 +60,6 @@ export const WEEKLY_HOURS_LABEL: Record<WeeklyHours, string> = {
   '6-10': '6–10\u00a0h',
   '11-15': '11–15\u00a0h',
   '15+': '15+\u00a0h',
-}
-
-export const REVIEW_TAG_LABEL: Record<ReviewTag, string> = {
-  on_time: 'Delivered on time',
-  responsive: 'Responsive',
-  quality_work: 'Quality work',
-  team_player: 'Team player',
-  took_initiative: 'Took initiative',
 }
 
 // ---------- Days and time blocks (all times Eastern) ----------

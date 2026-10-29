@@ -1,0 +1,78 @@
+/* Honesty reviews (components/ReviewDialog.tsx, the profile page's "Reviews from teammates", the Review buttons).
+   The dialog is a .setup-dialog sheet with a sticky .setup-dialog-foot, and its answers are .radio-cards, so every look
+   already styles them; the totals reuse the .coverage list in a compact form, like the cards' match checks. Imported by the component, so it loads before the theme files: rules that tweak a
+   shared class use extra classes. Design tokens only; per-look tweaks are at the end. */
+
+/* ---------- Dialog ---------- */
+/* Full width minus 16 px gutters on a phone; scrolls inside on a short screen. */
+.setup-dialog.review-dialog { width: min(560px, calc(100% - 32px)); max-width: none; max-height: calc(100dvh - 32px); overflow: auto; overscroll-behavior: contain; }
+.review-form { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+/* The four questions and the note, in one borderless fieldset so "already reviewed" can disable them together. */
+.review-fields { display: flex; flex-direction: column; gap: 18px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.review-fields:disabled .radio-card { opacity: 0.6; cursor: not-allowed; }
+.review-head { display: flex; flex-direction: column; gap: 8px; }
+.review-dialog h2 { font-size: 19px; overflow-wrap: anywhere; }
+.review-dialog h2:focus { outline: none; }
+.review-dialog .setup-dialog-body p { text-wrap: pretty; }
+
+.review-claim { display: flex; flex-direction: column; gap: 6px; }
+.review-claim > legend { margin-bottom: 2px; }
+.review-says { margin: 0; overflow-wrap: anywhere; }
+.review-says-value { color: var(--color-body); font-weight: 600; }
+/* Yes / No side by side, each a 44 px target. */
+.radio-cards.review-yesno { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.review-yesno .radio-card { align-items: center; min-height: 44px; padding: 10px 14px; }
+.review-yesno .radio-card input { margin: 0; }
+.review-yesno.is-invalid .radio-card:not(:has(input:checked)) { border-color: var(--color-warn); }
+
+.review-dialog textarea.setup-input.review-note { height: auto; min-height: 96px; padding: 10px 12px; line-height: 1.45; resize: vertical; }
+.review-note-meta { display: flex; align-items: flex-start; gap: 12px; }
+.review-note-meta .field-help { flex: 1; min-width: 0; }
+.review-count { flex: none; font-variant-numeric: tabular-nums; }
+.review-count.is-over { color: var(--color-warn); font-weight: 700; }
+
+.review-failure { margin: 0; overflow-wrap: anywhere; }
+.review-actions { margin-top: 2px; }
+.review-status { display: flex; flex-direction: column; gap: 8px; }
+/* Empty: takes no space but stays in the accessibility tree (not display:none), so screen readers announce the
+   "Review sent" text when it arrives. */
+.review-status:empty { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* ---------- Review buttons ---------- */
+/* My team member tiles: under the name, so long names keep their width. */
+.slot-review { margin-top: 4px; }
+.btn.review-btn { height: auto; white-space: normal; text-align: center; }
+.btn.btn-sm.review-btn { min-height: 32px; }
+/* "Reviewed ✓" is the only sign the review went through: a settled state at full strength, not a greyed-out button
+   (the global aria-disabled rule fades it to 55 %). The btn-sent colours already read as done. */
+.btn.review-btn.btn-sent[aria-disabled='true'] { opacity: 1; cursor: default; }
+
+/* ---------- Profile page: totals and notes ---------- */
+.review-lead { margin: 6px 0 0; text-wrap: pretty; }
+/* Compact rows, like the cards' MATCH CHECKS, so the card doesn't stretch Skills and Past work beside it. */
+.coverage.review-totals { gap: 2px; margin-top: 10px; }
+.coverage.review-totals li { align-items: flex-start; padding: 2px 0; line-height: 1.4; background: none; }
+.coverage.review-totals li.missing { background: none; color: var(--color-warn); }
+.coverage.review-totals .reason-icon { margin-top: 1px; }
+.review-notes-title { margin: 12px 0 0; font-size: 14px; font-weight: 600; color: var(--color-ink); }
+.review-notes { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.review-notes blockquote { margin: 0; padding: 8px 12px; border-left: 3px solid var(--color-hairline); color: var(--color-body); font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
+
+@media (max-width: 560px) {
+  .review-actions .btn { flex: 1 1 auto; }
+}
+
+/* ---------- Per look ---------- */
+/* Each look gives .coverage rows a fill and border; the totals are plain rows in all of them. */
+html.theme-aurora:not(.theme-retro) .coverage.review-totals li:is(.covered, .missing),
+html.theme-glass:not(.theme-retro) .coverage.review-totals li:is(.covered, .missing),
+html.theme-soft .coverage.review-totals li:is(.covered, .missing) { padding: 2px 0; border: 0; border-radius: 0; background: none; }
+html.theme-aurora:not(.theme-retro) .review-notes blockquote { border-left-color: rgba(255, 255, 255, 0.18); }
+html.theme-glass:not(.theme-retro) .review-notes blockquote { border-left-color: rgba(17, 17, 40, 0.16); }
+html.theme-soft .review-notes blockquote { border-left: 3px solid var(--soft-line); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; background: var(--color-surface-soft); }
+
+/* Profile page: Reviews takes the last row on its own, totals beside the notes, so it doesn't stretch Skills and Past work. */
+.profile-grid > .reviews-card { grid-column: 1 / -1; }
+.review-body { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: 12px var(--space-xl); align-items: start; }
+.review-body > * { min-width: 0; }
+.review-body .review-notes-title { margin-top: 10px; }

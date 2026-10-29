@@ -1,0 +1,72 @@
+/* Search on Find teammates and Open teams (components/SearchField.tsx), and the notes search results carry.
+   Imported by the component, so it loads before global.css / components.css: anything that tweaks a shared class
+   uses two classes. Design tokens only; per-look tweaks are at the end. The field itself is a .setup-input, so it
+   gets each look's field style and focus ring. */
+
+/* ---------- Field ---------- */
+.search { display: flex; flex-direction: column; gap: 6px; max-width: 860px; margin: 0 0 var(--space-md); }
+.search-top { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; }
+.search-busy { font-variant-numeric: tabular-nums; }
+.search-box { position: relative; }
+.search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--color-muted); pointer-events: none; }
+.setup-input.search-input { appearance: none; -webkit-appearance: none; padding-left: 40px; padding-right: 48px; }
+/* One Clear control only: hide WebKit's own "x". */
+.search-input::-webkit-search-cancel-button,
+.search-input::-webkit-search-decoration { -webkit-appearance: none; appearance: none; display: none; }
+/* The field's edge needs 3:1 against the page (WCAG 1.4.11); the shared field edge is lighter. */
+.setup-input.search-input:not(:hover):not(:focus):not(:focus-visible) { border-color: var(--color-muted-soft); }
+.search-clear {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  display: grid;
+  place-items: center;
+  background: transparent;
+  color: var(--color-muted);
+  font-size: 22px;
+  line-height: 1;
+}
+.search-clear:hover { color: var(--color-ink); background: var(--color-surface-soft); }
+.search-clear:focus-visible { outline: 2px solid var(--color-primary); outline-offset: -4px; }
+.search-hint { overflow-wrap: anywhere; }
+
+/* ---------- Results ---------- */
+/* While a search runs the current list stays in place, dimmed. No transition, so nothing moves. */
+.cards[aria-busy='true'],
+.search-state[aria-busy='true'] { opacity: 0.6; }
+.search-state p { margin: 0; max-width: 520px; text-wrap: pretty; }
+.search-state .row { flex-wrap: wrap; justify-content: center; margin-top: 4px; }
+
+/* Notes on a result: "Not looking for a team right now…", "Outside your filters: Goal". */
+.search-notes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.search-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--color-body);
+  font-size: 13px;
+  line-height: 1.4;
+  text-wrap: pretty;
+}
+.search-note-icon { flex: none; width: 18px; height: 18px; margin-top: 1px; border-radius: var(--radius-full); display: grid; place-items: center; background: var(--color-surface-strong); color: var(--color-ink); font-size: 11px; font-weight: 800; }
+/* A teammate found by search: "Already on Database Project" where Invite would be. */
+.pcard-member { color: var(--color-muted); }
+
+/* ---------- Phones ---------- */
+@media (max-width: 820px) {
+  .search { max-width: none; }
+}
+
+/* ---------- Per look: the field edge at 3:1 against each page background ---------- */
+html.theme-aurora:not(.theme-retro) .setup-input.search-input:not(:hover):not(:focus):not(:focus-visible) { border-color: rgba(255, 255, 255, 0.4); }
+html.theme-glass:not(.theme-retro) .setup-input.search-input:not(:hover):not(:focus):not(:focus-visible) { border-color: rgba(17, 17, 40, 0.5); }
+html.theme-soft .setup-input.search-input:not(:hover):not(:focus):not(:focus-visible) { border-color: #9c8166; }

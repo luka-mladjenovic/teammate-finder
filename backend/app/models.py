@@ -24,7 +24,7 @@ class Student(db.Model):
     name = db.Column(db.String, default="")
     email = db.Column(db.String, unique=True, nullable=False)
     email_verified = db.Column(db.Boolean, default=False)
-    major = db.Column(db.String, default="")
+    major = db.Column(db.String, default="Computer Science")
     year = db.Column(db.String, default="Freshman")
     roles = db.Column(db.JSON, default=list)
     skills = db.Column(db.JSON, default=list)
