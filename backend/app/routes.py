@@ -911,3 +911,15 @@ def get_reviews(student_id):
 
     reviews = Review.query.filter_by(reviewee_id=student_id).order_by(Review.created_at.desc()).all()
     return jsonify([r.to_dict() for r in reviews])
+
+@main.route("/api/students/<student_id>", methods=["GET"])
+def get_student(student_id):
+    me = current_student()
+    if not me:
+        return jsonify({"error": "not_signed_in"}), 401
+
+    student = Student.query.get(student_id)
+    if not student:
+        return jsonify({"error": "not_found"}), 404
+
+    return jsonify(student.to_dict(include_email=(student.id == me.id)))
