@@ -1,3 +1,4 @@
+import '../styles/search.css'
 import { motion } from 'motion/react'
 import { useId } from 'react'
 import { Link } from 'react-router-dom'
@@ -8,6 +9,7 @@ import { matchReasons, sharedWith, teamSlots, type MatchContext } from '../lib/m
 import { isFull } from '../lib/projects'
 import type { Student } from '../types'
 import { Avatar } from './Avatar'
+import { Handle } from './Handle'
 import { MatchReasons } from './MatchReasons'
 
 interface Props {
@@ -23,9 +25,27 @@ interface Props {
   onInvite: () => void
   /** Position in the list, used to stagger the entrance. */
   index?: number
+  /** Search results only: why this person isn't a plain fit, e.g. "Outside your filters: Goal", or "On your team for
+   *  Database Project." */
+  notes?: string[]
+  /** Search results only: already on the current project. No Compare, checks or Invite, as on the profile page; the
+   *  footer says "Already on {project}". */
+  onTeam?: boolean
 }
 
-export function ProfileCard({ student, ctx, comparing, compareFull, teamFull, invited = false, onToggleCompare, onInvite, index = 0 }: Props) {
+export function ProfileCard({
+  student,
+  ctx,
+  comparing,
+  compareFull,
+  teamFull,
+  invited = false,
+  onToggleCompare,
+  onInvite,
+  index = 0,
+  notes = [],
+  onTeam = false,
+}: Props) {
   const fullId = useId()
   const shared = sharedWith(student, teamSlots(ctx))
   const hours = hoursOf(shared)
@@ -55,12 +75,24 @@ export function ProfileCard({ student, ctx, comparing, compareFull, teamFull, in
           <Link to={`/people/${student.id}`} className="pcard-name">
             {student.name}
           </Link>
+          <Handle student={student} />
           <div className="tiny muted">
             {student.major} · {student.year}
           </div>
         </div>
         <span className="chip chip-primary">{ROLE_LABEL[mainRole]}</span>
       </header>
+
+      {notes.length > 0 && (
+        <ul className="search-notes">
+          {notes.map((n) => (
+            <li key={n} className="search-note">
+              <span className="search-note-icon" aria-hidden="true">i</span>
+              {n}
+            </li>
+          ))}
+        </ul>
+      )}
 
       <dl className="pcard-facts">
         <div><dt>Replies</dt><dd>{RESPONSE_LABEL[student.responseTime]}</dd></div>
@@ -80,18 +112,22 @@ export function ProfileCard({ student, ctx, comparing, compareFull, teamFull, in
         ))}
       </div>
 
-      <MatchReasons reasons={reasons} />
+      {!onTeam && <MatchReasons reasons={reasons} />}
 
       <footer className="pcard-actions">
-        <label className={`compare-toggle ${!comparing && compareFull ? 'is-disabled' : ''}`}>
-          <input type="checkbox" checked={comparing} disabled={!comparing && compareFull} onChange={onToggleCompare} />
-          Compare<span className="sr-only"> {student.name}</span>
-        </label>
+        {!onTeam && (
+          <label className={`compare-toggle ${!comparing && compareFull ? 'is-disabled' : ''}`}>
+            <input type="checkbox" checked={comparing} disabled={!comparing && compareFull} onChange={onToggleCompare} />
+            Compare<span className="sr-only"> {student.name}</span>
+          </label>
+        )}
         <span className="spacer" />
         <Link className="btn btn-sm btn-secondary" to={`/people/${student.id}`}>
           View profile<span className="sr-only">: {student.name}</span>
         </Link>
-        {invited ? (
+        {onTeam ? (
+          <span className="pcard-member small">Already on {ctx.team.project}</span>
+        ) : invited ? (
           // aria-disabled, not disabled: focus stays on the button that was just pressed.
           <button
             type="button"
@@ -113,7 +149,7 @@ export function ProfileCard({ student, ctx, comparing, compareFull, teamFull, in
             Invite
           </button>
         )}
-        {full && (
+        {full && !onTeam && (
           <p id={fullId} className="pcard-full tiny muted">
             {ctx.team.project} is full ({ctx.team.memberIds.length}/{ctx.team.size})
           </p>

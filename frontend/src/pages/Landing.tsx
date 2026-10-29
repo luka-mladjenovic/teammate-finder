@@ -53,7 +53,7 @@ const HERO_PEOPLE: HeroPerson[] = [
   { id: 'hero-maya', name: 'Maya Chen', role: 'lead', note: 'Fast replies', slot: 0, from: { x: -190, y: 30 }, at: { x: 14, y: 56, r: -5 } },
   { id: 'hero-zoe', name: 'Zoe Turner', role: 'docs', note: 'Slow replies', slot: -1, from: { x: 170, y: -130 }, at: { x: 154, y: 50, r: 2 } },
   { id: 'hero-leo', name: 'Leo Park', role: 'frontend', note: formatHours(9), slot: 1, from: { x: 520, y: 40 }, at: { x: 290, y: 62, r: 4 } },
-  { id: 'hero-ravi', name: 'Ravi Mehta', role: 'design', note: '3 good reviews', slot: 3, from: { x: -190, y: 210 }, at: { x: 24, y: 150, r: 3 } },
+  { id: 'hero-ravi', name: 'Ravi Mehta', role: 'design', note: 'Profile matched', slot: 3, from: { x: -190, y: 210 }, at: { x: 24, y: 150, r: 3 } },
   { id: 'hero-nora', name: 'Nora Silva', role: 'backend', note: 'Starts early', slot: 2, from: { x: 170, y: 420 }, at: { x: 162, y: 144, r: -3 } },
   { id: 'hero-felix', name: 'Felix Wright', role: 'testing', note: 'No shared time', slot: -1, from: { x: 540, y: 220 }, at: { x: 294, y: 154, r: -4 } },
 ]
@@ -315,7 +315,7 @@ const STEPS = [
   { title: 'Compare people on what matters', text: 'See shared time, roles and reviews side by side, with a clear reason for every match.' },
   {
     title: 'Form a team you can rely on',
-    text: "Invite the right people, email them once you've both said yes, and leave reviews when the project ends.",
+    text: "Invite the right people, email them once you've both said yes, and say whether teammates' profiles matched how they really worked.",
   },
 ]
 

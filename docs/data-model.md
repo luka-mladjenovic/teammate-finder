@@ -1,4 +1,4 @@
-# Data model and API contract (iteration 2)
+# Data model and API contract (iterations 2 and 3)
 
 This is the contract for the Flask backend. `frontend/src/api/index.ts` has one function per endpoint below.
 The UI calls all of them except `GET /api/students/:id` (profile pages read the `GET /api/students` list),
@@ -13,6 +13,14 @@ the mock data is in `frontend/src/data/`. How to run the two together, plus a bu
 Iteration 2 covers the 10/19 class feedback: finer time blocks with hours (D1), contact by UF email (D2),
 UF-only sign-up (D3) and multiple projects (D4). Product specs: `docs/iteration-2/*.md`.
 
+**Iteration 3 (course codes, usernames, search, reviews): the API is Luka's
+[`iteration-3/contract-additions.md`](iteration-3/contract-additions.md).** Where this file and his disagree, his
+wins. Below are only short pointers plus what the frontend does with each answer; the UI spec is
+[`iteration-3/search-and-usernames.md`](iteration-3/search-and-usernames.md). The frontend works with a server that
+has none of it yet: no `username` key on `GET /api/me` hides usernames, a failing `GET /api/courses` brings back the
+free-text Course field, a missing reviews route shows "Reviews aren't available yet", and every search answer is
+filtered again on the client.
+
 ## Conventions
 
 - JSON keys are `camelCase`; enum values are `snake_case` strings (`strong_grade`, `late_evening`).
@@ -23,7 +31,7 @@ UF-only sign-up (D3) and multiple projects (D4). Product specs: `docs/iteration-
 - **Errors** always use one body shape, with the HTTP status carrying the class of error:
 
   ```json
-  { "error": "duplicate_name", "message": "You already have “Database Project” in Database Systems.", "fields": { "project": "…" } }
+  { "error": "duplicate_name", "message": "You already have “Database Project” in CIS4301.", "fields": { "project": "…" } }
   ```
 
   | key | when |
@@ -49,9 +57,10 @@ UF-only sign-up (D3) and multiple projects (D4). Product specs: `docs/iteration-
 |---|---|---|
 | `id` | string | |
 | `name` | string | `""` for a new account until profile setup (limits: see Field limits below) |
+| `username` | string \| null | iteration 3, [contract §2](iteration-3/contract-additions.md#2-usernames): 3–20 chars of `a-z 0-9 _`, unique ignoring case; `null` until set. Shown as `@priya_builds`. Put the key on **every** Student payload: it is what turns usernames on in the frontend |
 | `email` | string? | **only on your own record** (`GET /api/me`, `PUT /api/me`, `POST /api/auth/verify`). Never in any other payload; see Contact |
 | `emailVerified` | boolean | becomes `true` only through `POST /api/auth/verify` |
-| `major` | string | may be empty |
+| `major` | string | one of `Computer Science`, `Computer Engineering`, `Computer Science Minor`, `Computer Engineering Minor` (the server's `VALID_MAJORS`). New accounts start as `Computer Science` (backend 09aff3d); an older account may still have `""`, and Profile setup then asks the student to pick one |
 | `year` | `Freshman` \| `Sophomore` \| `Junior` \| `Senior` \| `Graduate` | |
 | `roles` | Role[] | main role first. Role = `lead` \| `frontend` \| `backend` \| `design` \| `docs` \| `testing` |
 | `skills` | string[] | free tags, max 12, each max 30 chars |
@@ -63,7 +72,7 @@ UF-only sign-up (D3) and multiple projects (D4). Product specs: `docs/iteration-
 | `goal` | `pass` \| `strong_grade` \| `portfolio` | self-stated; we never store grades or GPA |
 | `pace` | `early` \| `steady` \| `deadline` | |
 | `pastWork` | `{ title, url?, role }[]` | max 5 (see Field limits) |
-| `reviews` | Review[] | see below |
+| `reviews` | Review[] | anonymous honesty reviews, see Review below |
 | `lookingForTeam` | boolean | Find teammates lists only students with `true` |
 
 **Field limits** (the profile-setup and sign-up inputs enforce the same ones; text is trimmed before saving):
@@ -71,7 +80,8 @@ UF-only sign-up (D3) and multiple projects (D4). Product specs: `docs/iteration-
 | field | limit |
 |---|---|
 | `name` | 1–80 chars (`""` only before profile setup) |
-| `major` | 0–80 chars |
+| `username` | `null`, or 3–20 chars matching `^[a-z0-9_]{3,20}$`, saved lowercase (contract §2) |
+| `major` | one of the four majors above |
 | `skills` | at most 12 tags, each 1–30 chars |
 | `pastWork` | at most 5 items; `title` 1–80 chars, `role` 0–80 chars, `url` optional, max 300 |
 | `availability` | known block keys only, else `400 invalid_time_block` (see Availability); duplicates dropped |
@@ -81,16 +91,35 @@ Anything else outside a limit is rejected with `400 validation` `{ fields }`; th
 
 Removed in iteration 2: `contactHandle` (contact is by UF email now).
 
-### Review (structured, low-abuse)
+### Usernames (iteration 3)
+
+Rules and errors: [contract §2](iteration-3/contract-additions.md#2-usernames). What the frontend adds:
+
+- Optional and never generated, pre-filled or derived from the email. Typing lowercases and drops a leading `@`.
+- It checks the contract's rule before sending and shows the same text as the server ("3-20 characters, letters,
+  numbers, and underscores only."). One extra client-only check, for privacy: not equal to the part of the
+  student's own UF email before the @ (asked of the server too, see `backend-handoff.md` section 10).
+- `PUT /api/me` carries `username` only when the server's payloads have the key **and** the value changed: a new
+  name as the string, an emptied field as `null`, otherwise no key at all.
+- `409 username_taken` and `400 validation` with `fields.username` show the server's message under the field.
+
+### Review (iteration 3, anonymous honesty review)
+
+Shape, rules and errors: [contract §3](iteration-3/contract-additions.md#3-reviews). A review says whether the
+person's profile matched how they really worked (role, skills, pace, goal; never availability), not how good their
+work was. It never says who wrote it.
 
 | field | type | notes |
 |---|---|---|
 | `id` | string | |
-| `teamId` | string | only members of a team formed in the app can review each other, after the project ends |
-| `project` | string | |
-| `tags` | (`on_time` \| `responsive` \| `quality_work` \| `team_player` \| `took_initiative`)[] | tags first, free text optional |
-| `note` | string? | short, optional, reportable |
-| `createdAt` | ISO date | |
+| `revieweeId` | string | |
+| `teamId` | string | the shared project it is about |
+| `roleAccurate`, `skillsAccurate`, `paceAccurate`, `goalAccurate` | boolean | |
+| `note` | string \| null | at most 300 chars |
+| `createdAt` | ISO date-time | |
+
+The profile page shows per-claim totals ("Role matched for 3 of 3 teammates") and the notes, with no reviewer, date
+or project. Removed in iteration 3: `project`, `tags` (`on_time`, `responsive`, …).
 
 ### Availability (D1)
 
@@ -121,7 +150,7 @@ One project = one team. The type keeps the name `Team`.
 |---|---|---|
 | `id` | string | |
 | `project` | string | project name, 2–60 chars after trimming |
-| `course` | string | 1–60 chars after trimming |
+| `course` | CourseCode | iteration 3: one of `GET /api/courses`, uppercase, no spaces (e.g. `"CIS4301"`), [contract §1](iteration-3/contract-additions.md#1-course-codes). Older rows may still hold free text; the frontend shows `course` as stored |
 | `size` | number | target size **including** the owner, 2–8; never below the member count |
 | `ownerId` | string | who created it; always in `memberIds`; the only one who can remove members |
 | `memberIds` | string[] | accepted members only, in join order, owner first. Pending invites and requests are not members |
@@ -137,7 +166,7 @@ Limits: `MIN_TEAM_SIZE = 2`, `MAX_TEAM_SIZE = 8`, `MAX_PROJECTS = 10` (projects 
 ### NewProject (body of `POST /api/projects`)
 
 `{ course, project, size, requiredRoles, goal, pace }`. The server sets `id`, `ownerId`, `memberIds` and
-`createdAt` and ignores them if the client sends them.
+`createdAt` and ignores them if the client sends them. `course` is a code from `GET /api/courses`.
 
 ### Invite
 
@@ -167,7 +196,8 @@ Limits: `MIN_TEAM_SIZE = 2`, `MAX_TEAM_SIZE = 8`, `MAX_PROJECTS = 10` (projects 
 | field | type | notes |
 |---|---|---|
 | `id` | string | same as the team's id |
-| `project`, `course` | string | |
+| `project` | string | |
+| `course` | CourseCode | as on the team |
 | `members` | `{ id, name, roles }[]` | **no email**, no other profile fields |
 | `rolesNeeded` | Role[] | required roles no current member covers |
 | `goal`, `pace` | as above | |
@@ -190,7 +220,8 @@ Limits: `MIN_TEAM_SIZE = 2`, `MAX_TEAM_SIZE = 8`, `MAX_PROJECTS = 10` (projects 
 ## Visibility and privacy rules (server-enforced)
 
 1. **Email** appears only on the signed-in user's own record. It never appears in `/api/students`,
-   `/api/students/:id`, team posts, project member lists or any other student payload.
+   `/api/students/:id`, team posts, project member lists or any other student payload. Search never matches it
+   (searching for an address must not reveal whose it is).
 2. **Contact unlock.** `GET /api/students/:id/contact` answers `200` only while the viewer and the student are
    both in `memberIds` of at least one project. Pending invites or join requests don't count. Access ends as soon
    as no shared project remains (e.g. after a removal). Otherwise `403 contact_locked`.
@@ -206,6 +237,7 @@ Limits: `MIN_TEAM_SIZE = 2`, `MAX_TEAM_SIZE = 8`, `MAX_PROJECTS = 10` (projects 
    joins without an accepted invite or accepted join request.
 8. **Availability** goes to signed-in UF users only and is unrelated to email visibility.
 9. **Team posts** list only teams with open spots and never a team you are in.
+10. **Usernames** are public to signed-in users and never derived from the email (see Usernames).
 
 ## Endpoints
 
@@ -250,14 +282,21 @@ No body → `204`. Clears the session.
 
 #### `PUT /api/me` · `api.updateMe`
 
-Saves profile setup. Body: any subset of `name, major, year, roles, skills, availability, weeklyHours,
+Saves profile setup. Body: any subset of `name, username, major, year, roles, skills, availability, weeklyHours,
 responseTime, channel, workMode, goal, pace, pastWork, lookingForTeam`. `email`, `emailVerified`, `id` and
-`reviews` are ignored. → `200 Student`. The frontend waits for this answer and shows the returned record; on any error it
-keeps the answers (and a draft on the device) and shows the error inline, so return `fields` messages in plain English.
-A `401` shows the sign-in prompt instead; the draft comes back after signing in with the same address.
+`reviews` are ignored. → `200 Student`. The frontend waits for this answer and shows the returned record; on any
+error it keeps the answers (and a draft on the device) and shows the error inline, so return `fields` messages in
+plain English. A `401` shows the sign-in prompt instead; the draft comes back after signing in with the same address.
+
+`username` (iteration 3, contract §2): see Usernames above for when the frontend sends it (a string, or `null` to
+remove one).
 
 Errors: `401 not_signed_in` · `400 validation` `{ fields }` (e.g. empty name, unknown role, a field outside its
-Field limit) · `400 invalid_time_block` (same rule as below; nothing is saved).
+Field limit, `fields.username`) · `409 username_taken` `{ "fields": { "username": "That username is taken." } }` ·
+`400 invalid_time_block` (same rule as below; nothing is saved). For both username errors the frontend shows the
+message under the Username field, moves focus there and keeps every other answer. The same goes for `fields.name`,
+`fields.major` and `fields.year` (under their field, first one focused); any other `fields.<key>` is named in the
+error bar ("Pace: …"), so every message reaches the student.
 
 #### `PUT /api/me/availability` · `api.updateAvailability`
 
@@ -275,6 +314,18 @@ missing or not an array of strings.
 
 → `200 Student[]`: students looking for a team plus everyone on your projects (the frontend needs teammates'
 profiles for My team). No `email` on any of them.
+
+#### `GET /api/students?q=<text>` · `api.searchStudents` (iteration 3)
+
+People search on Find teammates. Rules: [contract §2 "Search"](iteration-3/contract-additions.md#2-usernames):
+name **or** username contains `q`, ignoring case, across all students (also `lookingForTeam: false`), never the
+viewer, never `email`. Same Student shape (no `email`).
+
+Frontend: sends 2–50 characters, trimmed, inner spaces collapsed, one leading `@` dropped, `encodeURIComponent`-
+encoded; 250 ms after the last keystroke (Enter: at once), never the same query twice in a row, only the newest
+answer applied. It filters the answer again with the same rule (`frontend/src/lib/search.ts`, shared with the mock),
+so a server that ignores `q`, or matches more (SQL `LIKE` treats `_` as a wildcard), still shows the right people.
+The query is kept in app memory only, never in the page URL.
 
 #### `GET /api/students/:id` · `api.student`
 
@@ -295,15 +346,40 @@ profiles for My team). No `email` on any of them.
 Request:
 
 ```json
-{ "course": "Mobile App Development", "project": "Campus Events App", "size": 3, "requiredRoles": ["frontend", "backend"], "goal": "strong_grade", "pace": "steady" }
+{ "course": "CEN3031", "project": "Campus Events App", "size": 3, "requiredRoles": ["frontend", "backend"], "goal": "strong_grade", "pace": "steady" }
 ```
 
 `201`: the same fields plus `"id": "p_8f2k", "ownerId": "me", "memberIds": ["me"], "createdAt": "2026-10-20T14:05:00Z"`.
 Text is trimmed and inner runs of spaces collapsed before saving.
 
-Errors: `400 validation` `{ fields }` (course 1–60 chars, name 2–60, size 2–8, at least one known role, known
-goal/pace) · `409 duplicate_name` `{ fields: { project } }` (same name and course as one of your projects,
-ignoring case and extra spaces; the same name in another course is fine) · `409 project_limit` (already in 10).
+Errors: `400 validation` `{ fields }` (`course` not one of `GET /api/courses` (contract §1), name 2–60, size 2–8, at
+least one known role, known goal/pace) · `409 duplicate_name` `{ fields: { project } }` (same name and course as one
+of your projects, ignoring case and extra spaces; the same name in another course is fine) · `409 project_limit`
+(already in 10).
+
+Frontend: the Course field is a picker of the codes from `GET /api/courses`, so it sends a listed code; a
+`fields.course` message shows under the field. If `GET /api/courses` fails (an older server without the route), the
+field is free text again (1–60 chars) and text that looks like a code is sent compact and uppercase
+(`"cen 3031"` → `"CEN3031"`).
+
+### Courses (iteration 3)
+
+#### `GET /api/courses` · `api.courses`
+
+→ `200 CourseCode[]`, sorted ([contract §1](iteration-3/contract-additions.md#1-course-codes)). `401`. The frontend
+asks once a session (again after a new sign-in), when New project opens. The mock list is 16 UF CS/CpE codes:
+`MOCK_COURSES` in `frontend/src/lib/courses.ts`.
+
+### Reviews (iteration 3)
+
+#### `POST /api/students/:id/reviews` · `api.reviewStudent`
+
+Body: exactly `{ roleAccurate, skillsAccurate, paceAccurate, goalAccurate, note }` (`note` trimmed, `null` when
+empty) → `201 Review`. Errors: `400 validation` (`fields.note`), `403 never_shared_team`, `409 already_reviewed`, `404`
+([contract §3](iteration-3/contract-additions.md#3-reviews)). The frontend offers Review for anyone on one of your
+current projects (My team, their profile page) and shows each error in plain words. A `405`, a `404` without a JSON
+`error`, or a failed CORS preflight while `GET /api/me` still answers count as "the route doesn't exist yet": the
+dialog says "Reviews aren't available yet" and nothing is lost.
 
 #### `POST /api/projects/:id/invites` · `api.invite`
 
@@ -342,6 +418,13 @@ Removing someone ends their access to your email (and yours to theirs) unless an
 
 → `200 TeamPost[]`: teams with open spots, never one you are in.
 
+#### `GET /api/team-posts?q=<text>` · `api.searchTeamPosts` (iteration 3)
+
+Team search on Open teams. Rules: [contract §1 "Search"](iteration-3/contract-additions.md#1-course-codes): project
+name contains `q`, or `course` equals `q`, ignoring case; same visibility as without `q`. Frontend: a query that
+looks like a course code is sent compact and uppercase (`"cis 4301"` → `q=CIS4301`); the answer is filtered again
+with the same rule, which also compares the course with spaces removed. Members' names are not searched.
+
 #### `GET /api/requests/mine` · `api.myRequests`
 
 → `200 JoinRequest[]`: your requests (the frontend shows pending ones as "Requested").
@@ -376,8 +459,11 @@ No body → `201 JoinRequest` (`pending`). Errors: `404` · `409 already_member`
 | PUT | `/api/me` | 200 Student |
 | PUT | `/api/me/availability` | 200 AvailabilityResult |
 | GET | `/api/students` | 200 Student[] |
+| GET | `/api/students?q=` | 200 Student[] (search, iteration 3) |
 | GET | `/api/students/:id` | 200 Student |
 | GET | `/api/students/:id/contact` | 200 Contact |
+| POST | `/api/students/:id/reviews` | 201 Review (iteration 3) |
+| GET | `/api/courses` | 200 CourseCode[] (iteration 3) |
 | GET | `/api/projects` | 200 Team[] |
 | POST | `/api/projects` | 201 Team |
 | POST | `/api/projects/:id/invites` | 201 Invite |
@@ -385,6 +471,7 @@ No body → `201 JoinRequest` (`pending`). Errors: `404` · `409 already_member`
 | DELETE | `/api/projects/:id/invites/:inviteId` | 204 |
 | DELETE | `/api/projects/:id/members/:studentId` | 204 |
 | GET | `/api/team-posts` | 200 TeamPost[] |
+| GET | `/api/team-posts?q=` | 200 TeamPost[] (search, iteration 3) |
 | GET | `/api/requests/mine` | 200 JoinRequest[] |
 | POST | `/api/team-posts/:id/requests` | 201 JoinRequest |
 | DELETE | `/api/team-posts/:id/requests/mine` | 204 |
@@ -393,7 +480,7 @@ No body → `201 JoinRequest` (`pending`). Errors: `404` · `409 already_member`
 | GET | `/api/projects/:id/requests` | 200 JoinRequest[] |
 | POST | `/api/projects/:id/requests/:requestId` | 200 JoinRequest |
 
-Later (not in iteration 2): `POST /api/reviews`, study-mode logging `POST /api/study/events`.
+Later: study-mode logging `POST /api/study/events`. (Reviews are `POST /api/students/:id/reviews` above.)
 
 ## Matching (client-side, for reference)
 
@@ -417,4 +504,8 @@ Later (not in iteration 2): `POST /api/reviews`, study-mode logging `POST /api/s
 | Join requests | stay pending | owner accepts or declines |
 | `demoCode` | always returned | only behind an explicit demo flag |
 | No projects | add `?demo=no-projects` to the URL (before the `#` in the single-file build) | a new account has none |
+| Usernames | on (`ME.username: null`); every name in the mock data counts as taken | on once `GET /api/me` has a `username` key; off until then |
+| Search | all mock students (or `TEAM_POSTS`) through `lib/search.ts`, the contract's rules, with the usual delay | your `?q=` endpoints; the client filters the answer again with the same rules |
+| Courses | `MOCK_COURSES` (16 UF codes); unknown code → `400 fields.course` | `GET /api/courses`; if it fails, New project falls back to free text |
+| Reviews | Priya 2, Marcus 1, Aisha 1, Daniel 1 (pace: no), Noah 1 written by the viewer for Club Budget Tracker (reviewing him again → `409`); team = first shared project | `POST /api/students/:id/reviews`; without the route the dialog says "Reviews aren't available yet" |
 | State | in memory; a reload resets everything | persistent |

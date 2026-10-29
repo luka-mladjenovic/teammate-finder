@@ -1,6 +1,6 @@
 import '../styles/setup.css'
 import { AnimatePresence, motion, type Variants } from 'motion/react'
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { isApiError, USING_MOCK } from '../api'
 import { AvailabilityGrid } from '../components/AvailabilityGrid'
@@ -10,8 +10,10 @@ import { ProfileCard } from '../components/ProfileCard'
 import { SignedOutPage } from '../components/SignedOutPage'
 import { CHANNEL_LABEL, GOAL_HINT, GOAL_LABEL, PACE_LABEL, RESPONSE_LABEL, ROLE_LABEL, WEEKLY_HOURS_LABEL, WORK_MODE_LABEL } from '../labels'
 import { migrateLegacySlots, SLOT_KEYS } from '../lib/availability'
+import { joinWords } from '../lib/contact'
 import type { MatchContext } from '../lib/matching'
 import { pathOf, returnPath, returnState } from '../lib/returnTo'
+import { normalizeUsername, typedUsername, USERNAME_INPUT_MAX, USERNAME_TAKEN_MESSAGE, usernameProblem } from '../lib/username'
 import { useAppData } from '../state/AppData'
 import type { Channel, Goal, Pace, PastWork, ProfileUpdate, ResponseTime, Role, SlotKey, Student, WeeklyHours, WorkMode, Year } from '../types'
 
@@ -36,6 +38,8 @@ interface PastWorkRow {
 
 interface ProfileForm {
   name: string
+  /** As typed (lowercased, no leading "@"); "" = none. Saved only when the server supports usernames. */
+  username: string
   major: string
   year: Year
   roles: Role[]
@@ -53,6 +57,13 @@ interface ProfileForm {
 type ProfilePatch = Omit<ProfileUpdate, 'lookingForTeam'>
 
 type Errors = Record<string, string>
+
+/** What validation needs beyond the form: whether usernames are on, and the student's UF email (a username may not
+ *  equal its local part). */
+interface Rules {
+  usernames: boolean
+  email?: string
+}
 
 const YEARS: readonly Year[] = ['Freshman', 'Sophomore', 'Junior', 'Senior', 'Graduate']
 const HOURS: readonly WeeklyHours[] = ['1-5', '6-10', '11-15', '15+']
@@ -75,6 +86,30 @@ const PACE_OPTIONS = optionsOf(PACES, (p) => PACE_LABEL[p])
 const RESPONSE_OPTIONS = optionsOf(RESPONSES, (r) => RESPONSE_LABEL[r])
 const CHANNEL_OPTIONS = optionsOf(CHANNELS, (c) => CHANNEL_LABEL[c])
 const MAJOR_OPTIONS = optionsOf(['Computer Science', 'Computer Engineering', 'Computer Science Minor', 'Computer Engineering Minor'] as const, (major) => major)
+
+/** "The basics" fields whose server message (400 `fields.<key>`, 409 `username_taken`) shows under the field, in DOM
+ *  order. `word` names it in the bar ("Fix the major above…"). */
+type BasicKey = 'name' | 'username' | 'major' | 'year'
+const BASIC_FIELDS: Record<BasicKey, { id: string; word: string }> = {
+  name: { id: 'setup-name', word: 'name' },
+  username: { id: 'setup-username', word: 'username' },
+  major: { id: 'setup-major', word: 'major' },
+  year: { id: 'setup-year', word: 'year' },
+}
+const isBasicKey = (k: string): k is BasicKey => k in BASIC_FIELDS
+/** Every other PUT /api/me field: a server message for one of these is named in the bar. */
+const OTHER_FIELD_LABEL: Record<string, string> = {
+  availability: 'Availability',
+  roles: 'Roles',
+  skills: 'Skills',
+  weeklyHours: 'Time per project',
+  responseTime: 'Replies',
+  channel: 'Team chat',
+  workMode: 'Works',
+  goal: 'Goal',
+  pace: 'Pace',
+  pastWork: 'Past work',
+}
 
 /** Used only if the viewer failed to load. */
 const GUEST: Student = {
@@ -106,6 +141,7 @@ function newRow(w?: Partial<PastWork>): PastWorkRow {
 function fromStudent(s: Student): ProfileForm {
   return {
     name: s.name,
+    username: s.username ?? '',
     major: s.major,
     year: s.year,
     roles: [...s.roles],
@@ -128,6 +164,7 @@ function normalizeUrl(raw: string): string | undefined {
   return /^https?:\/\//i.test(u) ? u : `https://${u.replace(/^[a-z][a-z0-9+.-]*:\/*/i, '')}`
 }
 
+/** The PUT /api/me body, without `username` (see usernamePatch). */
 function toPatch(f: ProfileForm): ProfilePatch {
   return {
     name: f.name.trim(),
@@ -151,13 +188,29 @@ function toPatch(f: ProfileForm): ProfilePatch {
   }
 }
 
-function validate(step: Step, f: ProfileForm): Errors {
+/**
+ * `username` for PUT /api/me: only when the server supports usernames and the value changed. A new name is sent as
+ * the string; a field emptied that had a name sends null; unchanged (or still empty) sends no key at all, so saving
+ * never relies on the server ignoring it.
+ */
+function usernamePatch(f: ProfileForm, usernames: boolean, saved: string | null | undefined): Pick<ProfilePatch, 'username'> {
+  if (!usernames) return {}
+  const next = normalizeUsername(f.username)
+  if (next === (saved ?? '')) return {}
+  return { username: next || null }
+}
+
+function validate(step: Step, f: ProfileForm, rules: Rules): Errors {
   const e: Errors = {}
   if (step === 1) {
     if (f.availability.length === 0) e['setup-avail'] = "Mark at least one time you're usually free."
     if (f.roles.length === 0) e['setup-roles'] = 'Pick at least one role.'
   } else {
     if (!f.name.trim()) e['setup-name'] = 'Add your name.'
+    const username = rules.usernames ? usernameProblem(f.username, rules.email) : undefined
+    if (username) e['setup-username'] = username
+    // A new account (or an old one) can have no major, or one that isn't offered: the server takes only these four.
+    if (!MAJOR_OPTIONS.some((o) => o.value === f.major)) e['setup-major'] = 'Pick your major.'
     for (const w of f.pastWork) {
       if (!w.title.trim() && (w.url.trim() || w.role.trim())) e[`pw-title-${w.id}`] = 'Add a title, or remove this entry.'
     }
@@ -205,6 +258,8 @@ function sanitize(d: Record<string, unknown>, fb: ProfileForm): ProfileForm {
     : fb.pastWork
   return {
     name: str(d.name, fb.name),
+    // A draft from before usernames has none: start from the account's current one.
+    username: typeof d.username === 'string' ? typedUsername(d.username).slice(0, USERNAME_INPUT_MAX) : fb.username,
     major: str(d.major, fb.major),
     year: oneOf(d.year, YEARS, fb.year),
     roles: listOf(d.roles, ROLES, fb.roles),
@@ -278,7 +333,7 @@ function loadInitial(viewer: Student, fresh: boolean) {
   const saved = fresh ? null : readDraft(base)
   const draft = saved && (!saved.email || saved.email === viewer.email?.toLowerCase()) ? saved : null
   if (!draft) return { base, form: base, step: 1 as Step, restoredAt: null as string | null, droppedEvening: false }
-  const step1Ok = Object.keys(validate(1, draft.form)).length === 0
+  const step1Ok = Object.keys(validate(1, draft.form, { usernames: false })).length === 0
   return {
     base,
     form: draft.form,
@@ -319,7 +374,7 @@ const PAGE_NAME: Record<string, string> = { '/find': 'Find teammates', '/team': 
 // ---------- Page ----------
 
 export function ProfileSetup() {
-  const { loading, error, viewer, session, matchCtx, updateViewer } = useAppData()
+  const { loading, error, viewer, session, matchCtx, updateViewer, usernamesOn } = useAppData()
 
   if (loading) {
     return (
@@ -353,6 +408,7 @@ export function ProfileSetup() {
       signedIn={session === 'signed_in'}
       matchCtx={matchCtx}
       loadFailed={Boolean(error)}
+      usernames={usernamesOn}
       onSave={updateViewer}
     />
   )
@@ -364,12 +420,14 @@ interface SetupFormProps {
   signedIn: boolean
   matchCtx?: MatchContext
   loadFailed: boolean
+  /** The server supports usernames (AppData `usernamesOn`): show the Username field and send `username`. */
+  usernames: boolean
   /** PUT /api/me. Resolving false (or rejecting) means the server didn't save it; void counts as saved.
    *  Rejecting with a 401 ApiError means the session ended: the message asks them to sign in again. */
   onSave: (patch: Partial<Student>) => void | Promise<boolean | void>
 }
 
-function SetupForm({ viewer, signedIn, matchCtx, loadFailed, onSave }: SetupFormProps) {
+function SetupForm({ viewer, signedIn, matchCtx, loadFailed, usernames, onSave }: SetupFormProps) {
   const navigate = useNavigate()
   const location = useLocation()
   // Set by sign-up for a new account: the first name to welcome, and the page that asked them to sign up.
@@ -390,6 +448,9 @@ function SetupForm({ viewer, signedIn, matchCtx, loadFailed, onSave }: SetupForm
   const [done, setDone] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<{ text: string; signIn: boolean } | null>(null)
+  // The server turned a basics field down (409 username_taken, or 400 with fields.name/username/major/year). Shown
+  // under that field until its value is changed.
+  const [serverRejected, setServerRejected] = useState<Partial<Record<BasicKey, { value: string; message: string }>>>({})
   const [announcement, setAnnouncement] = useState('')
   const headingRef = useRef<HTMLHeadingElement>(null)
   const addRowRef = useRef<HTMLButtonElement>(null)
@@ -422,8 +483,14 @@ function SetupForm({ viewer, signedIn, matchCtx, loadFailed, onSave }: SetupForm
   const set = <K extends keyof ProfileForm>(key: K, value: ProfileForm[K]) => setForm((f) => ({ ...f, [key]: value }))
   const announce = (msg: string) => setAnnouncement((m) => (m === msg ? `${msg} ` : msg))
 
-  const errors = useMemo(() => (tried[step] ? validate(step, form) : {}), [tried, step, form])
+  const rules = useMemo<Rules>(() => ({ usernames, email: viewer?.email }), [usernames, viewer?.email])
+  const errors = useMemo(() => (tried[step] ? validate(step, form, rules) : {}), [tried, step, form, rules])
   const errorCount = Object.keys(errors).length
+  const rejectedMessage = (k: BasicKey) => {
+    const r = serverRejected[k]
+    return r && r.value === form[k] ? r.message : undefined
+  }
+  const usernameError = errors['setup-username'] ?? rejectedMessage('username')
 
   // Preview from a teammate's point of view: your current team minus you.
   const previewCtx = useMemo<MatchContext | undefined>(() => {
@@ -434,7 +501,13 @@ function SetupForm({ viewer, signedIn, matchCtx, loadFailed, onSave }: SetupForm
   }, [matchCtx])
 
   const previewStudent: Student | null = previewOpen
-    ? { ...(viewer ?? GUEST), ...(welcome ? { reviews: [] } : {}), ...toPatch(form), name: form.name.trim() || 'Your name' }
+    ? {
+        ...(viewer ?? GUEST),
+        ...(welcome ? { reviews: [] } : {}),
+        ...toPatch(form),
+        ...(usernames ? { username: normalizeUsername(form.username) || null } : {}),
+        name: form.name.trim() || 'Your name',
+      }
     : null
 
   // ----- field actions -----
@@ -473,7 +546,7 @@ function SetupForm({ viewer, signedIn, matchCtx, loadFailed, onSave }: SetupForm
   const markTried = (s: Step) => setTried((t) => (s === 1 ? { ...t, 1: true } : { ...t, 2: true }))
 
   const goNext = () => {
-    const e = validate(1, form)
+    const e = validate(1, form, rules)
     const keys = Object.keys(e)
     if (keys.length > 0) {
       markTried(1)
@@ -514,13 +587,13 @@ function SetupForm({ viewer, signedIn, matchCtx, loadFailed, onSave }: SetupForm
 
   const finish = async () => {
     if (done || saving) return
-    const e1 = Object.keys(validate(1, form))
+    const e1 = Object.keys(validate(1, form, rules))
     if (e1.length > 0) {
       markTried(1)
       goBack()
       return
     }
-    const e2 = Object.keys(validate(2, form))
+    const e2 = Object.keys(validate(2, form, rules))
     if (e2.length > 0) {
       markTried(2)
       focusField(e2[0])
@@ -531,17 +604,46 @@ function SetupForm({ viewer, signedIn, matchCtx, loadFailed, onSave }: SetupForm
     setSaveError(null)
     let ok: boolean
     let sessionEnded = false
+    // The server's own words (contract section 2 and data-model.md), shown as they come: under the field for the
+    // basics, named in the bar for anything else.
+    const rejected: Partial<Record<BasicKey, string>> = {}
+    const otherProblems: string[] = []
     try {
-      ok = (await onSave(toPatch(form))) !== false
+      ok = (await onSave({ ...toPatch(form), ...usernamePatch(form, usernames, viewer?.username) })) !== false
     } catch (e) {
       ok = false
       sessionEnded = isApiError(e) && e.status === 401
+      if (isApiError(e) && (e.code === 'username_taken' || e.code === 'validation')) {
+        const fields = e.body.fields ?? {}
+        if (e.code === 'username_taken') rejected.username = fields.username ?? USERNAME_TAKEN_MESSAGE
+        for (const [k, message] of Object.entries(fields)) {
+          // No Username field when usernames are off, so that message goes to the bar.
+          if (isBasicKey(k) && (k !== 'username' || usernames)) rejected[k] ??= message
+          else otherProblems.push(`${OTHER_FIELD_LABEL[k] ?? (k === 'username' ? 'Username' : k)}: ${message}`)
+        }
+      }
     }
     setSaving(false)
     if (!ok) {
       // Keep everything as typed, and store it on this device so a reload doesn't lose it either. The draft is
       // tied to this UF email, so signing in again with it picks the answers back up.
       const kept = writeDraft(step, form, viewer?.email)
+      const keys = (Object.keys(BASIC_FIELDS) as BasicKey[]).filter((k) => rejected[k])
+      if (keys.length > 0 || otherProblems.length > 0) {
+        const next: Partial<Record<BasicKey, { value: string; message: string }>> = {}
+        for (const k of keys) next[k] = { value: form[k], message: rejected[k] ?? '' }
+        setServerRejected(next)
+        const fix = keys.length > 0 ? `Fix the ${joinWords(keys.map((k) => BASIC_FIELDS[k].word))} above` : ''
+        setSaveError({
+          text:
+            otherProblems.length === 0
+              ? `Your profile wasn't saved. ${fix} and press Finish again.`
+              : `Your profile wasn't saved. ${fix ? `${fix}. ` : ''}${otherProblems.join(' ')} Your answers are still here.`,
+          signIn: false,
+        })
+        if (keys.length > 0) focusField(BASIC_FIELDS[keys[0]].id)
+        return
+      }
       if (sessionEnded) {
         setSaveError({
           text: `Your session ended, so your profile wasn't saved.${kept ? ' Your answers are kept as a draft on this device.' : ''}`,
@@ -564,148 +666,154 @@ function SetupForm({ viewer, signedIn, matchCtx, loadFailed, onSave }: SetupForm
 
   // ----- steps -----
 
+  // Two stacked columns, so the short Communication card doesn't leave a hole next to the tall Availability card.
+  // DOM order = reading order: left column (Availability, Communication), then right (Goals & effort, Roles & skills).
   const step1 = (
     <>
-      <Card id="card-avail" title="Availability" hint="Click or drag to mark when you're usually free. All times are Eastern Time.">
-        {droppedEvening && (
-          <p className="setup-note setup-note-warn">
-            <span className="find-note-icon" aria-hidden="true">!</span>
-            <span>
-              Time blocks changed: Evening is now Early evening <span className="setup-nowrap">(5–8 pm)</span> and Late evening{' '}
-              <span className="setup-nowrap">(8–11 pm)</span>. Mark your evenings again.
-            </span>
+      <div className="setup-col">
+        <Card id="card-avail" title="Availability" hint="Click or drag to mark when you're usually free. All times are Eastern Time.">
+          {droppedEvening && (
+            <p className="setup-note setup-note-warn">
+              <span className="find-note-icon" aria-hidden="true">!</span>
+              <span>
+                Time blocks changed: Evening is now Early evening <span className="setup-nowrap">(5–8 pm)</span> and Late evening{' '}
+                <span className="setup-nowrap">(8–11 pm)</span>. Mark your evenings again.
+              </span>
+            </p>
+          )}
+          <AvailabilityPicker
+            id="setup-avail"
+            value={form.availability}
+            onChange={(v) => set('availability', v)}
+            labelledBy="card-avail-title"
+            describedBy={describedBy('card-avail-hint', errors['setup-avail'] && 'setup-avail-error')}
+            invalid={Boolean(errors['setup-avail'])}
+          />
+          <FieldError id="setup-avail-error" message={errors['setup-avail']} />
+          <p className="ap-footnote tiny muted">
+            Night runs past midnight: Fri night means <span className="setup-nowrap">Fri 11 pm–Sat 1 am</span>.
           </p>
-        )}
-        <AvailabilityPicker
-          id="setup-avail"
-          value={form.availability}
-          onChange={(v) => set('availability', v)}
-          labelledBy="card-avail-title"
-          describedBy={describedBy('card-avail-hint', errors['setup-avail'] && 'setup-avail-error')}
-          invalid={Boolean(errors['setup-avail'])}
-        />
-        <FieldError id="setup-avail-error" message={errors['setup-avail']} />
-        <p className="ap-footnote tiny muted">
-          Night runs past midnight: Fri night means <span className="setup-nowrap">Fri 11 pm–Sat 1 am</span>.
-        </p>
-        <SelectField
-          id="setup-hours"
-          label="Time per project"
-          help="Hours a week you can usually give one course project. Not the same as your free times above."
-          value={form.weeklyHours}
-          options={HOUR_OPTIONS}
-          onChange={(v) => set('weeklyHours', v)}
-        />
-      </Card>
-
-      <Card id="card-comm" title="Communication" hint="So teammates know what to expect.">
-        <div className="setup-two">
           <SelectField
-            id="setup-response"
-            label="Usual reply time"
-            value={form.responseTime}
-            options={RESPONSE_OPTIONS}
-            onChange={(v) => set('responseTime', v)}
+            id="setup-hours"
+            label="Time per project"
+            help="Hours a week you can usually give one course project. Not the same as your free times above."
+            value={form.weeklyHours}
+            options={HOUR_OPTIONS}
+            onChange={(v) => set('weeklyHours', v)}
           />
-          <SelectField
-            id="setup-channel"
-            label="Preferred team chat"
-            help="First contact is always by UF email. This is what you'd like the team to use once it forms."
-            value={form.channel}
-            options={CHANNEL_OPTIONS}
-            onChange={(v) => set('channel', v)}
-          />
-        </div>
-        <fieldset className="setup-fieldset">
-          <legend className="field-label">Can meet</legend>
-          <div className="check-row">
-            {WORK_MODES.map((m) => (
-              <label key={m} className="check">
-                <input type="checkbox" checked={form.workMode.includes(m)} onChange={() => toggleWorkMode(m)} />
-                {WORK_MODE_LABEL[m]}
-              </label>
-            ))}
-          </div>
-          {form.workMode.length === 0 && <p className="field-help">Pick at least one so teammates know how to meet you.</p>}
-        </fieldset>
-      </Card>
+        </Card>
 
-      <Card id="card-goal" title="Goals & effort" hint="What you usually want from a course project. Each project sets its own team goal.">
-        <fieldset className="setup-fieldset">
-          <legend className="field-label">Your goal</legend>
-          <div className="radio-cards">
-            {GOALS.map((g) => (
-              <label key={g} className="radio-card">
-                <input
-                  type="radio"
-                  name="setup-goal"
-                  value={g}
-                  checked={form.goal === g}
-                  onChange={() => set('goal', g)}
-                  aria-describedby={`goal-hint-${g}`}
-                />
-                <span className="radio-card-text">
-                  <span className="radio-card-title">{GOAL_LABEL[g]}</span>
-                  <span id={`goal-hint-${g}`} className="radio-card-hint">{GOAL_HINT[g]}</span>
-                </span>
-              </label>
-            ))}
+        <Card id="card-comm" title="Communication" hint="So teammates know what to expect.">
+          <div className="setup-two">
+            <SelectField
+              id="setup-response"
+              label="Usual reply time"
+              value={form.responseTime}
+              options={RESPONSE_OPTIONS}
+              onChange={(v) => set('responseTime', v)}
+            />
+            <SelectField
+              id="setup-channel"
+              label="Preferred team chat"
+              help="First contact is always by UF email. This is what you'd like the team to use once it forms."
+              value={form.channel}
+              options={CHANNEL_OPTIONS}
+              onChange={(v) => set('channel', v)}
+            />
           </div>
-        </fieldset>
-        <SelectField id="setup-pace" label="Pace" value={form.pace} options={PACE_OPTIONS} onChange={(v) => set('pace', v)} />
-        <p className="setup-note">
-          <span aria-hidden="true">ⓘ</span>
-          This is a goal, not a grade. We never collect grades.
-        </p>
-      </Card>
+          <fieldset className="setup-fieldset">
+            <legend className="field-label">Can meet</legend>
+            <div className="check-row">
+              {WORK_MODES.map((m) => (
+                <label key={m} className="check">
+                  <input type="checkbox" checked={form.workMode.includes(m)} onChange={() => toggleWorkMode(m)} />
+                  {WORK_MODE_LABEL[m]}
+                </label>
+              ))}
+            </div>
+            {form.workMode.length === 0 && <p className="field-help">Pick at least one so teammates know how to meet you.</p>}
+          </fieldset>
+        </Card>
+      </div>
 
-      <Card id="card-roles" title="Roles & skills" hint="Your first pick is your main role.">
-        <div className="field">
-          <span id="setup-roles-label" className="field-label">Roles you can take</span>
-          <div
-            id="setup-roles"
-            role="group"
-            aria-labelledby="setup-roles-label"
-            aria-describedby={describedBy('card-roles-hint', errors['setup-roles'] && 'setup-roles-error')}
-            className={`role-chips ${errors['setup-roles'] ? 'is-invalid' : ''}`}
-          >
-            {ROLES.map((r) => {
-              const i = form.roles.indexOf(r)
-              const on = i >= 0
-              return (
-                <button key={r} type="button" className={`role-chip ${on ? 'is-on' : ''}`} aria-pressed={on} onClick={() => toggleRole(r)}>
-                  <span className="role-chip-icon" aria-hidden="true">{on ? '✓' : '+'}</span>
-                  {ROLE_LABEL[r]}
-                  <AnimatePresence initial={false}>
-                    {i === 0 && (
-                      <motion.span
-                        className="role-main"
-                        initial={{ opacity: 0, scale: 0.6 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.6 }}
-                        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                      >
-                        Main
-                      </motion.span>
-                    )}
-                  </AnimatePresence>
-                </button>
-              )
-            })}
+      <div className="setup-col">
+        <Card id="card-goal" title="Goals & effort" hint="What you usually want from a course project. Each project sets its own team goal.">
+          <fieldset className="setup-fieldset">
+            <legend className="field-label">Your goal</legend>
+            <div className="radio-cards">
+              {GOALS.map((g) => (
+                <label key={g} className="radio-card">
+                  <input
+                    type="radio"
+                    name="setup-goal"
+                    value={g}
+                    checked={form.goal === g}
+                    onChange={() => set('goal', g)}
+                    aria-describedby={`goal-hint-${g}`}
+                  />
+                  <span className="radio-card-text">
+                    <span className="radio-card-title">{GOAL_LABEL[g]}</span>
+                    <span id={`goal-hint-${g}`} className="radio-card-hint">{GOAL_HINT[g]}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          <SelectField id="setup-pace" label="Pace" value={form.pace} options={PACE_OPTIONS} onChange={(v) => set('pace', v)} />
+          <p className="setup-note">
+            <span aria-hidden="true">ⓘ</span>
+            This is a goal, not a grade. We never collect grades.
+          </p>
+        </Card>
+
+        <Card id="card-roles" title="Roles & skills" hint="Your first pick is your main role.">
+          <div className="field">
+            <span id="setup-roles-label" className="field-label">Roles you can take</span>
+            <div
+              id="setup-roles"
+              role="group"
+              aria-labelledby="setup-roles-label"
+              aria-describedby={describedBy('card-roles-hint', errors['setup-roles'] && 'setup-roles-error')}
+              className={`role-chips ${errors['setup-roles'] ? 'is-invalid' : ''}`}
+            >
+              {ROLES.map((r) => {
+                const i = form.roles.indexOf(r)
+                const on = i >= 0
+                return (
+                  <button key={r} type="button" className={`role-chip ${on ? 'is-on' : ''}`} aria-pressed={on} onClick={() => toggleRole(r)}>
+                    <span className="role-chip-icon" aria-hidden="true">{on ? '✓' : '+'}</span>
+                    {ROLE_LABEL[r]}
+                    <AnimatePresence initial={false}>
+                      {i === 0 && (
+                        <motion.span
+                          className="role-main"
+                          initial={{ opacity: 0, scale: 0.6 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.6 }}
+                          transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                        >
+                          Main
+                        </motion.span>
+                      )}
+                    </AnimatePresence>
+                  </button>
+                )
+              })}
+            </div>
+            <FieldError id="setup-roles-error" message={errors['setup-roles']} />
           </div>
-          <FieldError id="setup-roles-error" message={errors['setup-roles']} />
-        </div>
-        {form.roles.length >= 2 && (
-          <SelectField
-            id="setup-main-role"
-            label="Main role"
-            value={form.roles[0]}
-            options={optionsOf(form.roles, (r) => ROLE_LABEL[r])}
-            onChange={setMainRole}
-          />
-        )}
-        <SkillsInput skills={form.skills} onChange={(v) => set('skills', v)} announce={announce} />
-      </Card>
+          {form.roles.length >= 2 && (
+            <SelectField
+              id="setup-main-role"
+              label="Main role"
+              value={form.roles[0]}
+              options={optionsOf(form.roles, (r) => ROLE_LABEL[r])}
+              onChange={setMainRole}
+            />
+          )}
+          <SkillsInput skills={form.skills} onChange={(v) => set('skills', v)} announce={announce} />
+        </Card>
+      </div>
     </>
   )
 
@@ -719,16 +827,28 @@ function SetupForm({ viewer, signedIn, matchCtx, loadFailed, onSave }: SetupForm
           autoComplete="name"
           value={form.name}
           onChange={(v) => set('name', v)}
-          error={errors['setup-name']}
+          error={errors['setup-name'] ?? rejectedMessage('name')}
         />
+        {usernames && <UsernameField value={form.username} onChange={(v) => set('username', v)} error={usernameError} />}
         <SelectField
           id="setup-major"
           label="Major"
+          required
           value={form.major}
           options={MAJOR_OPTIONS}
+          // A new account has no major yet: say so instead of showing "Computer Science" while saving nothing.
+          placeholder="Choose your major"
+          error={errors['setup-major'] ?? rejectedMessage('major')}
           onChange={(v) => set('major', v)}
         />
-        <SelectField id="setup-year" label="Year" value={form.year} options={YEAR_OPTIONS} onChange={(v) => set('year', v)} />
+        <SelectField
+          id="setup-year"
+          label="Year"
+          value={form.year}
+          options={YEAR_OPTIONS}
+          error={rejectedMessage('year')}
+          onChange={(v) => set('year', v)}
+        />
         <div className="field">
           <span id="setup-email-label" className="field-label">UF email</span>
           {signedIn && viewer?.email ? (
@@ -977,6 +1097,57 @@ function Card({ id, title, hint, children }: { id: string; title: string; hint?:
       </div>
       {children}
     </section>
+  )
+}
+
+/** Optional @username (docs/iteration-3/search-and-usernames.md B). The "@" sits inside the field; typing lowercases
+ *  the text and drops a leading "@". Never autofilled: browsers would offer the UF email for a "username" field. */
+function UsernameField({ value, onChange, error }: { value: string; onChange: (v: string) => void; error?: string }) {
+  const id = 'setup-username'
+  const inputRef = useRef<HTMLInputElement>(null)
+  /** Where the caret belongs after this keystroke's text is committed; null = leave it to the browser. */
+  const caretRef = useRef<number | null>(null)
+  // React puts the caret at the end when the value changes under it (lowercasing, a dropped "@"). Put it back right
+  // after React commits, before the next keystroke can arrive, so fast typing never lands letters in the middle.
+  useLayoutEffect(() => {
+    const el = inputRef.current
+    const caret = caretRef.current
+    caretRef.current = null
+    if (el && caret !== null && document.activeElement === el && el.value === value) el.setSelectionRange(caret, caret)
+  })
+  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const el = e.target
+    const next = typedUsername(el.value)
+    caretRef.current = next !== el.value ? Math.max(0, (el.selectionStart ?? next.length) - (el.value.length - next.length)) : null
+    onChange(next)
+  }
+  return (
+    <div className="field">
+      <label htmlFor={id} className="field-label">
+        Username<span className="field-opt"> (optional)</span>
+      </label>
+      <span className="setup-affix">
+        <span className="setup-affix-at" aria-hidden="true">@</span>
+        <input
+          ref={inputRef}
+          id={id}
+          className="setup-input setup-input-affixed"
+          value={value}
+          onChange={handleChange}
+          maxLength={USERNAME_INPUT_MAX}
+          autoComplete="off"
+          autoCapitalize="none"
+          spellCheck={false}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={describedBy(`${id}-help`, error && `${id}-error`)}
+        />
+      </span>
+      <p id={`${id}-help`} className="field-help">
+        Public: shown on your card, and classmates can search for it. Pick something other than your UF email name, which
+        stays private. 3-20 lowercase letters, numbers or underscores.
+      </p>
+      <FieldError id={`${id}-error`} message={error} />
+    </div>
   )
 }
 

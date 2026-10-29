@@ -114,30 +114,47 @@ export function TextField({
 interface SelectFieldProps<T extends string> {
   id: string
   label: string
-  value: T
+  /** May be outside `options` (e.g. "" from the server): with a `placeholder` that shows instead of the first option. */
+  value: T | ''
   options: readonly { value: T; label: string }[]
   onChange: (v: T) => void
   help?: string
+  /** Shown as a disabled first option while `value` isn't one of the options, e.g. "Choose your major". */
+  placeholder?: string
+  error?: string
+  required?: boolean
 }
 
-export function SelectField<T extends string>({ id, label, value, options, onChange, help }: SelectFieldProps<T>) {
+export function SelectField<T extends string>({ id, label, value, options, onChange, help, placeholder, error, required = false }: SelectFieldProps<T>) {
+  const known = options.some((o) => o.value === value)
   return (
     <div className="field">
-      <label htmlFor={id} className="field-label">{label}</label>
+      <label htmlFor={id} className="field-label">
+        {label}
+        {required && <span className="field-req" aria-hidden="true"> *</span>}
+      </label>
       <span className="select-wrap">
         <select
           id={id}
           className="setup-select"
-          value={value}
+          value={known || !placeholder ? value : ''}
           onChange={(e) => onChange(e.target.value as T)}
-          aria-describedby={help ? `${id}-help` : undefined}
+          aria-required={required || undefined}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={describedBy(help && `${id}-help`, error && `${id}-error`)}
         >
+          {placeholder && !known && (
+            <option value="" disabled>
+              {placeholder}
+            </option>
+          )}
           {options.map((o) => (
             <option key={o.value} value={o.value}>{o.label}</option>
           ))}
         </select>
       </span>
       {help && <p id={`${id}-help`} className="field-help">{help}</p>}
+      <FieldError id={`${id}-error`} message={error} />
     </div>
   )
 }

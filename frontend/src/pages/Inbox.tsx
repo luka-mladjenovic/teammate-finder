@@ -8,6 +8,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { USING_MOCK } from '../api'
 import { AvailabilityGrid } from '../components/AvailabilityGrid'
 import { Avatar } from '../components/Avatar'
+import { Handle } from '../components/Handle'
 import { MatchReasons } from '../components/MatchReasons'
 import { SignedOutPage } from '../components/SignedOutPage'
 import { celebrateIfFull } from '../fun/celebrate'
@@ -263,6 +264,7 @@ export function Inbox() {
                     {s && <Avatar student={s} size={32} />}
                     <div className="inbox-row-main">
                       {s ? <Link to={`/people/${s.id}`}><strong>{name}</strong></Link> : <strong>{name}</strong>}
+                      {s && <Handle student={s} />}
                       <span className="tiny muted">
                         Invited to {projectName(inv.projectId)} · {timeAgo(inv.createdAt)}
                       </span>
@@ -570,6 +572,7 @@ function RequestGroup({ team, members, viewer, requests, busy, onAnswer }: Reque
                   {s && <Avatar student={s} size={40} />}
                   <div className="inbox-row-main">
                     {s ? <Link to={`/people/${s.id}`}><strong>{name}</strong></Link> : <strong>{name}</strong>}
+                    {s && <Handle student={s} />}
                     <span className="tiny muted">
                       {[s?.major, s?.year].filter(Boolean).join(' · ')}
                       {s && ' · '}asked {timeAgo(r.createdAt)}

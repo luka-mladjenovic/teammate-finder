@@ -4,10 +4,19 @@ For whoever builds the Teammate Finder API. The React frontend is finished for i
 every request; it runs on an in-memory mock until you point it at your server. You implement the endpoints in
 [`data-model.md`](data-model.md) and the frontend works against them without code changes.
 
+**New in iteration 3 (10/28):** course codes, usernames, search and reviews, built against Luka's
+[`iteration-3/contract-additions.md`](iteration-3/contract-additions.md) (that file is the API; where anything here
+disagrees, it wins). The frontend already works with today's backend: it hides usernames until your payloads carry
+the key, falls back to a free-text Course field while `GET /api/courses` is missing, says "Reviews aren't available
+yet" while the reviews route is missing, and filters search answers itself. Questions and suggestions for the
+backend: [section 10, Frontend notes for Luka](#10-frontend-notes-for-luka).
+
 | Read | For |
 |---|---|
 | [`data-model.md`](data-model.md) | **The contract**: shapes, endpoints, error codes, the privacy rules the server enforces |
 | [`iteration-2/`](iteration-2/README.md) | Why each rule exists (class feedback → decisions D1–D4) and the acceptance criteria |
+| [`iteration-3/contract-additions.md`](iteration-3/contract-additions.md) | **Luka's contract** for course codes, usernames, search and reviews |
+| [`iteration-3/search-and-usernames.md`](iteration-3/search-and-usernames.md) | The frontend side of iteration 3: UI behaviour, copy, fallbacks and acceptance criteria |
 | `frontend/src/api/index.ts` | One function per endpoint. The mock server at the top of the file is a working reference for each rule |
 | `frontend/src/types.ts` | The TypeScript shapes the JSON must match |
 | `frontend/src/data/mock.ts`, `teamPosts.ts` | Fictional seed data for the user-study scenario |
@@ -53,6 +62,17 @@ What changes by itself once `VITE_API_URL` is set (no code edits):
   what was typed as a draft on the device; it comes back after signing in with the same address.
 - Every `availability` you return is cleaned on read (unknown or legacy keys and duplicates are dropped before
   any grid sees them). That is a safety net, not a reason to skip the server's own validation.
+- Usernames switch on by themselves: as soon as `GET /api/me` (or `PUT /api/me`, or `verify`) returns a
+  `username` key (`null` is fine), Profile setup shows the Username field, a changed username is sent (a string, or
+  `null` when emptied), and @handles appear on cards, profiles, the compare tray, My team and the Inbox. Without the
+  key none of that shows and `PUT /api/me` never carries `username`.
+- Search sends `GET /api/students?q=` and `GET /api/team-posts?q=` and filters every answer again with the
+  contract's rules, so results are right whether or not you handle `q` yet (people search can only find students
+  your list holds, though).
+- New project asks `GET /api/courses` once a session. While it fails, the Course field is free text as before (a
+  code-like value is sent as `"CEN3031"`); once it answers, the field is a picker of your codes.
+- Review (My team, a teammate's profile) sends `POST /api/students/:id/reviews`. Until the route exists the dialog
+  says "Reviews aren't available yet" and keeps saying so for the session.
 
 ## 2. Point the frontend at Flask
 
@@ -105,11 +125,15 @@ no `/api/` requests appear at all.
 | App start (every full page load) | In parallel: `GET /api/me`, `GET /api/projects`, `GET /api/students`, `GET /api/team-posts`, `GET /api/requests/mine`. A `401` from `/api/me` means "signed out"; any other failure shows a load error |
 | `/signup`, `/signin` | `POST /api/auth/email-code` (again for "Send a new code"), then `POST /api/auth/verify`; after that the four list calls above run again and pages show their loading state until all four answer. `isNewAccount: true` goes to profile setup; otherwise back to the page whose sign-in prompt sent them there (in-app paths only), else to `/find` |
 | Account menu → Sign out | `POST /api/auth/signout` |
-| `/profile/setup` → Finish | `PUT /api/me` with the whole profile, availability included. The page waits for your answer: `200` shows "Saved" and opens Find teammates (a new account that came from a sign-in prompt: that page) with the record you returned; a `401` keeps the answers as a draft and shows the sign-in prompt; any other error keeps the form and shows the error inline |
+| `/profile/setup` → Finish | `PUT /api/me` with the whole profile, availability included, plus `username` only when your payloads have that key and the value changed (a string, or `null` when emptied). The page waits for your answer: `200` shows "Saved" and opens Find teammates (a new account that came from a sign-in prompt: that page) with the record you returned; a `401` keeps the answers as a draft and shows the sign-in prompt; `409 username_taken` or `400` with `fields.username` shows the message under the Username field; any other error keeps the form and shows the error inline |
+| `/find` → Search all students | `GET /api/students?q=<text>` 250 ms after the last keystroke (Enter: at once), from 2 characters on, without a leading `@`; never the same query twice in a row. Nothing is sent while the field is empty |
+| `/teams` → Search open teams | `GET /api/team-posts?q=<text>`, same timing; a course code goes compact and uppercase (`cis 4301` → `q=CIS4301`) |
+| `/projects/new` (first visit in a session) | `GET /api/courses` |
+| My team or a teammate's profile → Review → Send review | `POST /api/students/:id/reviews` with exactly `roleAccurate, skillsAccurate, paceAccurate, goalAccurate, note` |
 | `/people/:id`, `/team` | `GET /api/students/:id/contact`, only for students the client believes are unlocked; cached per student until sign-in or sign-out |
 | Invite (Find teammates, compare tray, profile page) | `POST /api/projects/:id/invites` for the **current** project; not sent again while that student's invite is pending |
 | My team → remove (×) | `DELETE /api/projects/:id/members/:studentId` (the button shows only to the owner) |
-| `/projects/new` → Create project | `POST /api/projects` |
+| `/projects/new` → Create project | `POST /api/projects` (`course`: a code from `GET /api/courses`) |
 | `/teams` → Request to join / Cancel request | `POST /api/team-posts/:id/requests` / `DELETE /api/team-posts/:id/requests/mine` |
 | Switching project, filters, sorting, compare | No request |
 
@@ -154,6 +178,13 @@ Build in this order; each step makes more of the app work. Details and examples 
 - [ ] `GET /api/invites/mine`, `POST /api/invites/:id` (`{ "decision": "accept" | "decline" }`)
 - [ ] `GET /api/projects/:id/requests`, `POST /api/projects/:id/requests/:requestId`
 - [ ] `GET /api/students/:id`, `PUT /api/me/availability`
+
+**Step 6. Iteration 3** (rules: [`iteration-3/contract-additions.md`](iteration-3/contract-additions.md); notes: section 10)
+
+- [ ] `GET /api/courses` → `CourseCode[]`, and `course` checked against it in `POST /api/projects`
+- [ ] `username` on every Student payload and in `PUT /api/me` (`400 validation`, `409 username_taken`)
+- [ ] `?q=` on `GET /api/students` (name or username) and `GET /api/team-posts` (project name or course code)
+- [ ] `POST /api/students/:id/reviews` → `201 Review` (`400`, `403 never_shared_team`, `409 already_reviewed`, `404`)
 
 ## 5. Rules the server must enforce
 
@@ -210,7 +241,10 @@ several places, so write it in plain English.
 | `POST /api/projects` | Any error with `fields`, keyed `course`, `project`, `size`, `requiredRoles`, `goal`, `pace` (each message shows under its field); `409 project_limit` | Generic "Couldn't create the project" |
 | `POST /api/projects/:id/invites` | `409 already_invited` is shown as "Invite sent ✓", like a fresh `pending` invite | A toast: "Couldn't invite Priya. {message}" |
 | Remove, request, cancel | none | A toast, e.g. "Couldn't remove Jordan. {message}" |
-| `PUT /api/me` (profile save) | `401`: the sign-in prompt, with "A draft saved on this device comes back when you sign in with the same UF email." | Inline alert on the form: "Couldn't save your profile. Your answers are still here…"; nothing is lost |
+| `PUT /api/me` (profile save) | `401`: the sign-in prompt, with "A draft saved on this device comes back when you sign in with the same UF email." `409 username_taken`, or `400 validation` with `fields.username`: the message under the Username field, focus there, and "Your profile wasn't saved. Fix the username above and press Finish again." | Inline alert on the form: "Couldn't save your profile. Your answers are still here…"; nothing is lost |
+| `GET /api/students?q=`, `GET /api/team-posts?q=` | none | "Search isn't working right now", your `message` (or "Couldn't reach the server."), Try again and Clear search; the count says "Search failed." |
+| `GET /api/courses` | none | Any failure: New project shows the free-text Course field, no error banner |
+| `POST /api/students/:id/reviews` | `409 already_reviewed` ("You've already reviewed {name} for this project. Reviews can't be changed."), `403 never_shared_team` ("You can only review people you've been on a project with."), `400` with `fields.note` (under the note), `404 not_found`; `405`, a `404` without a JSON `error`, or a failed preflight while `GET /api/me` answers → "Reviews aren't available yet" | "Couldn't send the review. {message}"; answers stay |
 | Contact | none | "Couldn't load their email." with a Retry button |
 
 A network failure (server down, CORS refused) arrives in the UI as status `0`, code `network_error`.
@@ -223,8 +257,16 @@ session cookie: check `Access-Control-Allow-Credentials`, the exact allowed orig
 
 The study scenario only works with the same fictional data:
 
-- Students: `ME` and `STUDENTS` in `frontend/src/data/mock.ts` (ids, roles, availability, goal, pace, reply time).
-  Their UF emails are in `MOCK_EMAILS` (all `….demo@ufl.edu`; the viewer is `you@ufl.edu`).
+- Students: `ME` and `STUDENTS` in `frontend/src/data/mock.ts` (ids, roles, availability, goal, pace, reply time,
+  username, reviews). Their UF emails are in `MOCK_EMAILS` (all `….demo@ufl.edu`; the viewer is `you@ufl.edu`).
+  Usernames follow the contract (`a-z 0-9 _`): the viewer and Lena have none (`null`), everyone else has one
+  (e.g. Priya `priya_builds`, Daniel `dkim_dev`). Reviews are in the contract's shape: Priya 2 (all yes, one note),
+  Marcus 1, Aisha 1, Daniel 1 (pace: no, with a note), and Noah 1 that the viewer wrote for Club Budget Tracker
+  (`MOCK_REVIEWS_BY_VIEWER`), so reviewing Noah again answers `409 already_reviewed`.
+- Courses: the 16 codes in `MOCK_COURSES` (`frontend/src/lib/courses.ts`). Every mock project and post uses one:
+  Database Project and Course Planner API and Library Seat Booker `CIS4301`; Club Budget Tracker, Campus Ride Share
+  and Recipe Remix `CEN3031`; Study Spot Finder `CEN4721`; Air Quality Dashboard `CAP4770`; Gator Eats `CIS4914`;
+  Shell Scheduler `COP4600`.
 - Projects: `PROJECTS` in the same file. "Database Project" (`t1`, 2 of 4: You + Jordan, owner You) comes
   first; "Club Budget Tracker" (`t2`, 3 of 4: Rosa (owner), Noah, You) second. Rosa and Noah have
   `lookingForTeam: false`, so they never show on Find teammates. Ines Moreau (`ines`) is the testing candidate
@@ -263,5 +305,69 @@ switches the look (in the single-file build both go before the `#`).
   `JoinRequest.note` in the contract and a screen for the person who receives it.
 - Nothing stops a student from joining two teams in the same course. The specs chose "allowed, no warning" for
   now (projects.md section 8); the server could enforce one team per course later.
-- Later, not in iteration 2: `POST /api/reviews` and study-mode logging (`POST /api/study/events`).
+- Later: study-mode logging (`POST /api/study/events`).
 - Time zones: every block is Eastern Time wall-clock; nothing converts.
+
+## 10. Frontend notes for Luka
+
+The API for iteration 3 is your [`iteration-3/contract-additions.md`](iteration-3/contract-additions.md); the frontend
+follows it as written, and every call for it is in `frontend/src/api/index.ts` (`api.updateMe`, `api.searchStudents`,
+`api.searchTeamPosts`, `api.courses`, `api.reviewStudent`). Things we noticed or would like, checked against
+`origin/main` on 10/28 (737acda, then rechecked at 09aff3d "set a default major"; thanks for 2, 13 and the courses
+route):
+
+1. **Username = email local part.** Please also reject a username equal to the part of the student's own email
+   before the @ (`400 validation`, `fields.username`), so `you@ufl.edu` can't pick `you` and make the address
+   public. The frontend checks it ("Don't use the part of your UF email before the @. Your email stays private until
+   you team up."), but other clients won't.
+2. ~~**`update_me` ignores a bad username.**~~ Fixed in 09aff3d: the username block now runs before `if errors`, so a
+   bad username answers `400` with `fields.username`, which the frontend shows under the field.
+3. **Removing a username.** The frontend sends `"username": null` when someone empties the field. Since 09aff3d that
+   becomes `""`, fails the pattern and answers `400` "3-20 characters, letters, numbers, and underscores only.", so a
+   username can't be removed and the message doesn't explain why. Please accept `null` to clear it (contract §2).
+4. **Uniqueness and races.** The duplicate check already skips the student's own row (good; the frontend also only
+   sends `username` when it changed). Two saves at once can still hit the `unique=True` constraint: catching
+   `IntegrityError` and answering the same `409 username_taken` would cover it.
+5. **`username` on every Student payload** (null allowed), as `to_dict()` does now. The key is what switches the
+   Username field and the @handles on, so please keep it there.
+6. **People search.** `GET /api/students?q=` now matches name or username (thanks), but still keeps
+   `looking_for_team == True or teammate` when `q` is set. The contract says it bypasses `lookingForTeam`, so a
+   student who isn't looking can't be found yet.
+7. **Escape `%` and `_` before `ilike`.** Usernames contain `_`, which `LIKE` treats as "any character", so `q=a_b`
+   also finds `axb`. The frontend filters every answer again, so results on screen stay right either way.
+8. **Team search.** `GET /api/team-posts` now reads `q`, but matches `course` with "contains" (`"cis"` finds every
+   CIS team) and keeps the spaces (`"cis 4301"` finds nothing). The contract says the course must equal the query:
+   please compare `q` with spaces removed and uppercased against `course` for equality. The frontend already sends
+   `CIS4301` for "cis 4301" and filters every answer again, so the screen is right either way; other callers aren't.
+   Existing free-text `Team.course` rows need migrating to codes, or code search won't find them.
+9. **Courses.** `GET /api/courses` works (thanks), but `VALID_COURSES` (12 codes) and the frontend's `MOCK_COURSES`
+   (16 codes in `frontend/src/lib/courses.ts`) differ. Yours lacks CAP4621, CAP4770, CDA3101, CIS4301, COP4020,
+   COP4533, COP4600, COT3100 and EEL3872 (CIS4301 is the study scenario's Database Project, CAP4770 its Air Quality
+   Dashboard); ours lacks CEN4722, CEN5728, CIS4930, COP3504C and COP5536. Can we agree on one list? Please also
+   compare `course` with spaces removed and uppercased in `POST /api/projects`, and keep `fields.course` in plain
+   English (it shows as-is under the field; the frontend's own copy is "Pick a course from the list.").
+10. **Which team a review is for.** `NewReview` has no `teamId`. When two people share more than one project, which
+    one is recorded (and checked for `already_reviewed`)? An optional `teamId` in the body would settle it; we'll
+    send the current project's id once you confirm. The mock uses the first shared project in join order.
+11. **Review answers.** Please return `note: null` when empty, keep `fields.note` in plain English, and decide
+    whether a reviewer may review someone they are on a project with *now* (the frontend offers it; the contract
+    says "currently share, or have ever shared", so we read it as yes).
+12. **CORS for new routes.** Until `/api/students/:id/reviews` exists, the browser's preflight gets a `404` and the
+    request fails with no status; the frontend then checks `GET /api/me` and shows "Reviews aren't available yet".
+    Nothing to do, just so the console error doesn't surprise you.
+13. ~~(Kept from before) The `major` check was indented under `if "name" in data`.~~ Fixed in 09aff3d.
+14. **Major.** Before 09aff3d every new account had `major: ""`. Profile setup showed that as "Computer Science" but
+    sent `""`, so Finish failed with `400 fields.major` and the student couldn't see why. Your new default fixes new
+    accounts; accounts created before it still have `""`. The frontend now shows "Choose your major" for any value
+    outside the four, asks "Pick your major." before sending, and shows `fields.name`, `fields.major` and
+    `fields.year` under their field (any other `fields.<key>` is named in the bar). Nothing to do unless you want to
+    migrate old rows.
+
+Checked on 10/28 against the backend at the time (HEAD and `origin/main` 737acda): with no `username` key the frontend's `PUT /api/me` body is
+exactly `name, major, year, roles, skills, availability, weeklyHours, responseTime, channel, workMode, goal, pace,
+pastWork` (`200`); `GET /api/courses` answers `404`, so New project shows the free-text field and `"cen 3031"` is
+saved as `CEN3031` (`201`); people search finds "Existing Student" from `seed.py`; and Review shows "Reviews aren't
+available yet". With `origin/main` a username saves and comes back (`"alex_k"`), and a taken one answers `409` with
+"That username is taken." under the field. At 09aff3d: a new account picks a major and Finish answers `200`; a
+teammate with no skills shows "No skills added yet." on their profile; and Review still shows "Reviews aren't
+available yet" (no reviews route yet).

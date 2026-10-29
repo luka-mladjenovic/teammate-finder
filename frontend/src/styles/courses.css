@@ -1,0 +1,56 @@
+/* New project's course picker (components/CoursePicker.tsx). The field is a .setup-input, so each look styles it
+   and its focus ring; the list uses design tokens, with per-look tweaks at the end. Imported by the component, so it
+   loads before the theme files: rules that tweak a shared class use two classes. */
+
+.course-combo { position: relative; }
+.setup-input.course-input { padding-right: 36px; text-transform: none; }
+.course-chevron { position: absolute; right: 13px; top: 50%; transform: translateY(-50%); color: var(--color-muted); pointer-events: none; }
+.course-list {
+  position: absolute;
+  z-index: 30;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
+  /* Six and a half 44 px rows, then it scrolls: the half row shows there is more, since scrollbars are often hidden. */
+  max-height: 294px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-canvas);
+  box-shadow: var(--shadow-float), 0 12px 28px -12px color-mix(in srgb, var(--color-ink) 28%, transparent);
+}
+.course-list[hidden] { display: none; }
+.course-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: calc(var(--radius-sm) - 2px);
+  color: var(--color-ink);
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+.course-option[aria-selected='true'] { background: var(--color-primary-soft); color: var(--color-primary-active); box-shadow: inset 0 0 0 1px var(--color-primary); }
+.course-check { margin-left: auto; color: var(--color-primary); font-weight: 800; }
+/* "No course matches …" in the popup's place: plain text, not an option. */
+.course-list.course-empty { padding: 12px 14px; color: var(--color-body); line-height: 1.45; text-wrap: pretty; cursor: default; }
+.course-status { margin: 0; min-height: 0; }
+/* Empty: takes no space (no extra gap in the field) but stays in the accessibility tree, so the first count is
+   announced. display:none would drop it. */
+.course-status:empty { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* ---------- Per look ---------- */
+html.theme-aurora:not(.theme-retro) .course-list { background: #13131c; border-color: rgba(255, 255, 255, 0.16); box-shadow: 0 18px 40px -12px rgba(0, 0, 0, 0.85); }
+html.theme-aurora:not(.theme-retro) .course-option[aria-selected='true'] { color: var(--color-ink); }
+html.theme-glass:not(.theme-retro) .course-list { border-radius: 14px; border-color: rgba(17, 17, 40, 0.14); }
+html.theme-glass:not(.theme-retro) .course-option { border-radius: 10px; }
+html.theme-soft .course-list { border: 1.5px solid var(--soft-line); border-radius: var(--radius-md); }
+html.theme-soft .course-option { border-radius: 10px; }

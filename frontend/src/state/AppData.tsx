@@ -1,15 +1,20 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { api, isApiError, onUnauthorized, USING_MOCK } from '../api'
+import { api, ApiError, isApiError, onUnauthorized, USING_MOCK } from '../api'
 import { firstName, sharedProjects } from '../lib/contact'
+import { compactCode } from '../lib/courses'
 import type { MatchContext } from '../lib/matching'
 import { isFull } from '../lib/projects'
+import type { Found } from '../lib/useSearch'
 import type {
   Contact,
+  CourseCode,
   DecisionInput,
   Invite,
   JoinRequest,
   NewProject,
+  NewReview,
   ProfileUpdate,
+  Review,
   SessionStatus,
   Student,
   Team,
@@ -18,6 +23,15 @@ import type {
 } from '../types'
 
 export const MAX_COMPARE = 3
+
+/** The two searches: people on Find teammates, projects on Open teams. */
+export type SearchKind = 'students' | 'teams'
+
+/** The last finished search per page, so Back and project switches show the same results without a new request. */
+interface SearchMemo {
+  students?: Found<Student>
+  teams?: Found<TeamPost>
+}
 
 /** A short status message for the toast region (polite live region in App.tsx). */
 export interface Notice {
@@ -41,12 +55,32 @@ interface AppData {
   signOut: () => Promise<void>
   /** Saves profile edits with PUT /api/me and, once the server answers, shows its copy. Rejects with the ApiError on failure (not announced: the caller shows it). */
   updateViewer: (patch: Partial<ProfileUpdate>) => Promise<boolean>
+  /**
+   * The server supports usernames: the latest GET /api/me, PUT /api/me or verify payload has a `username` key (null
+   * allowed). Off (today's Flask backend): no Username field, PUT /api/me never sends the key, and no @handle shows
+   * anywhere, even if some other payload carries one.
+   */
+  usernamesOn: boolean
 
   // ----- People -----
   /** Every student the API returned (no emails). Find teammates filters by lookingForTeam. */
   students: Student[]
   /** Any student by id, the viewer included. */
   byId: (id: string) => Student | undefined
+
+  // ----- Search (Find teammates and Open teams) -----
+  /** What is typed in each page's search field. Kept for the session, never in the URL (typed names stay out of
+   *  history and server logs). Signing out clears it (real API). */
+  searchText: Record<SearchKind, string>
+  setSearchText: (kind: SearchKind, text: string) => void
+  /** The last finished search of a page, if any. */
+  recallSearch: <K extends SearchKind>(kind: K) => SearchMemo[K]
+  rememberSearch: <K extends SearchKind>(kind: K, found: NonNullable<SearchMemo[K]>) => void
+  /** GET /api/students?q=. Students it finds who aren't loaded yet (real API: not looking for a team and not a
+   *  teammate) are added to `students`, so View profile, Compare and Invite work for them. Rejects with ApiError. */
+  searchStudents: (q: string) => Promise<Student[]>
+  /** GET /api/team-posts?q=. Rejects with ApiError. */
+  searchTeamPosts: (q: string) => Promise<TeamPost[]>
 
   // ----- Projects (D4). `team`, `members` and `matchCtx` always mean the CURRENT project. -----
   /** Your projects in join order. Empty for a new account (demo: ?demo=no-projects). */
@@ -62,6 +96,25 @@ interface AppData {
   switchProject: (id: string) => void
   /** Creates a project (you as owner and only member) and makes it current. Rejects with ApiError. */
   createProject: (p: NewProject) => Promise<Team>
+
+  // ----- Course codes (GET /api/courses), for New project. -----
+  /** The server's course codes, once loaded. */
+  courses?: CourseCode[]
+  /** GET /api/courses failed (e.g. an older backend without the route): New project falls back to free text. */
+  coursesFailed: boolean
+  /** Loads the list if it hasn't been asked for yet: at most one request a session (again after a new sign-in). */
+  loadCourses: () => void
+
+  // ----- Reviews (anonymous honesty reviews of teammates) -----
+  /** POST /api/students/:id/reviews. On success the review is added to that student's `reviews`. Rejects with the
+   *  ApiError; 409 already_reviewed also marks them reviewed. A server without the route rejects with the code
+   *  `reviews_unavailable` and sets `reviewsUnavailable`. */
+  reviewStudent: (studentId: string, body: NewReview) => Promise<Review>
+  /** Students you reviewed this session (or that the server said you already had). */
+  reviewedIds: string[]
+  /** The server has no reviews endpoint (404/405, or a failed preflight while GET /api/me works). For the rest of the
+   *  session Review opens straight to "Reviews aren't available yet". */
+  reviewsUnavailable: boolean
 
   // ----- Compare: one list per project (max 3) -----
   compareIds: string[]
@@ -142,6 +195,33 @@ function inboxErrorText(e: unknown, project: string) {
 
 const newestFirst = <T extends { createdAt: string }>(a: T, b: T) => b.createdAt.localeCompare(a.createdAt)
 
+/** Code of the synthetic ApiError AppData.reviewStudent rejects with when the server has no reviews endpoint. */
+export const REVIEWS_UNAVAILABLE = 'reviews_unavailable'
+
+/**
+ * Whether a failed POST /api/students/:id/reviews means the route doesn't exist yet (today's Flask backend): 405, or a
+ * 404 without a JSON error code (Flask's own HTML page), or no answer at all while GET /api/me still answers, since a
+ * missing route also fails the CORS preflight. A real `404 not_found` (no such student) is not that.
+ */
+async function reviewsEndpointMissing(e: unknown): Promise<boolean> {
+  if (!isApiError(e)) return false
+  if (e.status === 405) return true
+  if (e.status === 404) return e.code === 'http_404'
+  if (e.status !== 0) return false
+  try {
+    await api.me()
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** A clean course list: strings only, compact and uppercase, no duplicates, sorted. */
+const cleanCourses = (list: unknown): CourseCode[] | undefined =>
+  Array.isArray(list)
+    ? [...new Set(list.filter((c): c is string => typeof c === 'string' && c.trim() !== '').map(compactCode))].sort()
+    : undefined
+
 interface Loaded {
   projects: Team[]
   students: Student[]
@@ -176,6 +256,14 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   // Like loadSeq: only the newest inbox load may apply its result.
   const inboxSeq = useRef(0)
   const [notice, setNotice] = useState<Notice | null>(null)
+  const [searchText, setSearchTexts] = useState<Record<SearchKind, string>>({ students: '', teams: '' })
+  const searchMemo = useRef<SearchMemo>({})
+  const [courses, setCourses] = useState<CourseCode[]>()
+  const [coursesFailed, setCoursesFailed] = useState(false)
+  /** GET /api/courses was sent this session: it is never sent twice. */
+  const coursesAsked = useRef(false)
+  const [reviewedIds, setReviewedIds] = useState<string[]>([])
+  const [reviewsUnavailable, setReviewsUnavailable] = useState(false)
   const noticeTimer = useRef<number | undefined>(undefined)
   const contactCache = useRef(new Map<string, Promise<Contact>>())
   // Each data load takes a number; only the newest may apply its result or end `loading`, so a load that
@@ -244,6 +332,35 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     },
     [viewer, byId],
   )
+
+  /** Adds students the app hasn't loaded yet, by id (Inbox people, search results). */
+  const addStudents = useCallback((people: Student[]) => {
+    if (people.length === 0) return
+    setStudents((list) => {
+      const have = new Set(list.map((x) => x.id))
+      const add = people.filter((a, i) => !have.has(a.id) && people.findIndex((b) => b.id === a.id) === i)
+      return add.length ? [...list, ...add] : list
+    })
+  }, [])
+
+  const setSearchText = useCallback(
+    (kind: SearchKind, text: string) => setSearchTexts((t) => (t[kind] === text ? t : { ...t, [kind]: text })),
+    [],
+  )
+  const recallSearch = useCallback(<K extends SearchKind>(kind: K) => searchMemo.current[kind], [])
+  const rememberSearch = useCallback(<K extends SearchKind>(kind: K, found: NonNullable<SearchMemo[K]>) => {
+    searchMemo.current[kind] = found
+  }, [])
+
+  const searchStudents = useCallback(
+    async (q: string) => {
+      const found = await api.searchStudents(q)
+      addStudents(found)
+      return found
+    },
+    [addStudents],
+  )
+  const searchTeamPosts = useCallback((q: string) => api.searchTeamPosts(q), [])
 
   const team = useMemo(() => projects.find((p) => p.id === currentId) ?? projects[0], [projects, currentId])
   const members = useMemo(() => (team ? membersOf(team) : []), [team, membersOf])
@@ -347,6 +464,50 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     return created
   }, [])
 
+  const loadCourses = useCallback(() => {
+    if (coursesAsked.current) return
+    coursesAsked.current = true
+    api.courses().then(
+      (list) => {
+        const clean = cleanCourses(list)
+        if (clean) setCourses(clean)
+        else setCoursesFailed(true)
+      },
+      () => setCoursesFailed(true),
+    )
+  }, [])
+
+  /** A new session may answer differently (signed out before, or another server state): forget the list. */
+  const resetCourses = useCallback(() => {
+    coursesAsked.current = false
+    setCourses(undefined)
+    setCoursesFailed(false)
+  }, [])
+
+  const markReviewed = useCallback((id: string) => setReviewedIds((ids) => (ids.includes(id) ? ids : [...ids, id])), [])
+
+  const reviewStudent = useCallback(
+    async (studentId: string, body: NewReview) => {
+      try {
+        const review = await api.reviewStudent(studentId, body)
+        // Show it in their totals right away (the profile page reads `students`).
+        setStudents((list) =>
+          list.map((s) => (s.id === studentId ? { ...s, reviews: [...s.reviews.filter((r) => r.id !== review.id), review] } : s)),
+        )
+        markReviewed(studentId)
+        return review
+      } catch (e) {
+        if (isApiError(e) && e.code === 'already_reviewed') markReviewed(studentId)
+        if (await reviewsEndpointMissing(e)) {
+          setReviewsUnavailable(true)
+          throw new ApiError(isApiError(e) ? e.status : 0, { error: REVIEWS_UNAVAILABLE, message: "Reviews aren't available yet." })
+        }
+        throw e
+      }
+    },
+    [markReviewed],
+  )
+
   const requestToJoin = useCallback(
     async (postId: string) => {
       const temp: JoinRequest = { id: `tmp-${postId}`, postId, status: 'pending', createdAt: new Date().toISOString() }
@@ -419,13 +580,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       setInboxRequests(reqs.filter((r) => r.status === 'pending').sort(newestFirst))
       // People asking to join or invited may not be in GET /api/students (not looking for a team). Their profile
       // page and, once they join, My team need them in `students`.
-      if (people.length > 0) {
-        setStudents((list) => {
-          const have = new Set(list.map((x) => x.id))
-          const add = people.filter((a, i) => !have.has(a.id) && people.findIndex((b) => b.id === a.id) === i)
-          return add.length ? [...list, ...add] : list
-        })
-      }
+      addStudents(people)
       setInboxError(undefined)
     } catch (e) {
       if (seq !== inboxSeq.current || sessionEnded(e)) return
@@ -433,7 +588,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     } finally {
       if (seq === inboxSeq.current) setInboxLoading(false)
     }
-  }, [ownedKey, projectKey])
+  }, [ownedKey, projectKey, addStudents])
 
   // Load the inbox once data is in (for the nav badge), and again when the set of projects you're on changes.
   const viewerId = viewer?.id
@@ -553,6 +708,11 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const applySignIn = useCallback(
     (result: VerifyResult) => {
       contactCache.current.clear()
+      // Results were found for the last account (they leave out the viewer); the text stays and searches again.
+      searchMemo.current = {}
+      setReviewedIds([])
+      // Asked while signed out (real API: 401), or by another account: ask again.
+      resetCourses()
       inboxSeq.current++
       setInboxInvites([])
       setInboxRequests([])
@@ -575,7 +735,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
           if (current()) setLoading(false)
         })
     },
-    [applyLoaded, markSession, notify],
+    [applyLoaded, markSession, notify, resetCourses],
   )
 
   /** The signed-out state, after Sign out or a 401. */
@@ -601,8 +761,12 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       setInboxLoading(true)
       setCompareBy({})
       setCurrentId(undefined)
+      setSearchTexts({ students: '', teams: '' })
+      searchMemo.current = {}
+      setReviewedIds([])
+      resetCourses()
     }
-  }, [markSession])
+  }, [markSession, resetCourses])
 
   // Real API: a 401 from any request means the session expired or ended elsewhere. Sign out at once, so the data
   // pages show their sign-in prompt instead of each showing an error that "Try again" can't fix. The listener
@@ -641,6 +805,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     return true
   }, [])
 
+  // Feature detect, from the viewer payload only (see the interface above).
+  const usernamesOn = viewer !== undefined && 'username' in viewer
+
   const teamPosts = useMemo(() => {
     const mine = new Set(projects.map((p) => p.id))
     return posts.filter((p) => !mine.has(p.id))
@@ -669,8 +836,15 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     applySignIn,
     signOut,
     updateViewer,
+    usernamesOn,
     students,
     byId,
+    searchText,
+    setSearchText,
+    recallSearch,
+    rememberSearch,
+    searchStudents,
+    searchTeamPosts,
     projects,
     team,
     members,
@@ -678,6 +852,12 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     matchCtx,
     switchProject,
     createProject,
+    courses,
+    coursesFailed,
+    loadCourses,
+    reviewStudent,
+    reviewedIds,
+    reviewsUnavailable,
     compareIds: (teamId && compareBy[teamId]) || [],
     toggleCompare,
     clearCompare,

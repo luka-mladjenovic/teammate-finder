@@ -2,7 +2,8 @@
 // All people, teams and projects are made up. Posts are tuned against the default viewer (ME in mock.ts:
 // lead/backend, strong grade, steady pace, free Tue/Thu afternoons, late evenings Mon-Thu, Wed/Thu nights
 // and Sunday afternoon) so the page shows one clear best fit (Course Planner API, 19 h a week together),
-// a few trade-offs, and one team that is hidden by the default role filter.
+// a few trade-offs, and one team that is hidden by the default role filter. Courses are codes from MOCK_COURSES
+// (lib/courses.ts): search "CIS 4301" finds Course Planner API and Library Seat Booker.
 import type { TeamPost } from '../types'
 
 export type { TeamPost, TeamPostMember } from '../types'
@@ -15,7 +16,7 @@ export const TEAM_POSTS: TeamPost[] = [
   {
     id: 'tp-planner',
     project: 'Course Planner API',
-    course: 'Database Systems',
+    course: 'CIS4301',
     members: [
       { id: 'tp-nia', name: 'Nia Thompson', roles: ['frontend', 'design'] },
       { id: 'tp-victor', name: 'Victor Osei', roles: ['docs', 'testing'] },
@@ -31,7 +32,7 @@ export const TEAM_POSTS: TeamPost[] = [
   {
     id: 'tp-rideshare',
     project: 'Campus Ride Share',
-    course: 'Mobile App Development',
+    course: 'CEN3031',
     members: [
       { id: 'tp-leo', name: 'Leo Park', roles: ['lead', 'frontend'] },
       { id: 'tp-mia', name: 'Mia Santos', roles: ['design'] },
@@ -48,7 +49,7 @@ export const TEAM_POSTS: TeamPost[] = [
   {
     id: 'tp-studyspot',
     project: 'Study Spot Finder',
-    course: 'Human-Computer Interaction',
+    course: 'CEN4721',
     members: [
       { id: 'tp-zoe', name: 'Zoe Carter', roles: ['design', 'docs'] },
       { id: 'tp-ben', name: 'Ben Adler', roles: ['frontend'] },
@@ -64,7 +65,7 @@ export const TEAM_POSTS: TeamPost[] = [
   {
     id: 'tp-recipes',
     project: 'Recipe Remix',
-    course: 'Mobile App Development',
+    course: 'CEN3031',
     members: [
       { id: 'tp-chloe', name: 'Chloe Dubois', roles: ['frontend', 'design'] },
       { id: 'tp-sam', name: 'Sam Ortiz', roles: ['frontend', 'lead'] },
@@ -80,7 +81,7 @@ export const TEAM_POSTS: TeamPost[] = [
   {
     id: 'tp-airquality',
     project: 'Air Quality Dashboard',
-    course: 'Data Science Capstone',
+    course: 'CAP4770',
     members: [
       { id: 'tp-ravi', name: 'Ravi Iyer', roles: ['lead', 'docs'] },
       { id: 'tp-hana', name: 'Hana Sato', roles: ['design'] },
@@ -97,7 +98,7 @@ export const TEAM_POSTS: TeamPost[] = [
   {
     id: 'tp-seats',
     project: 'Library Seat Booker',
-    course: 'Database Systems',
+    course: 'CIS4301',
     members: [
       { id: 'tp-owen', name: 'Owen Fitzgerald', roles: ['frontend'] },
       { id: 'tp-lucia', name: 'Lucia Romero', roles: ['docs'] },

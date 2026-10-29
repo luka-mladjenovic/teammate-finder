@@ -6,7 +6,25 @@
 // with Jordan the team's common time is 21 h a week. Times are blocks (see types.ts); all Eastern Time.
 // Second project (Club Budget Tracker, needs Testing / QA): Ines is its one clear fit. She is not a frontend
 // developer and wants a portfolio piece, so for the Database Project she misses two checks (role, goal).
-import type { Student, Team } from '../types'
+// Usernames are picked by each student (3-20 of a-z, 0-9, _) and never come from the UF email (none equals a
+// MOCK_EMAILS local part); Lena and the viewer have none. Courses are codes from MOCK_COURSES (lib/courses.ts).
+// Reviews are anonymous honesty reviews: did the profile match how they worked? Priya has 2, all yes.
+import type { Review, Student, Team } from '../types'
+
+/** An anonymous review in the contract's shape. `no` lists the claims a teammate said didn't match. */
+function review(id: string, revieweeId: string, teamId: string, createdAt: string, note: string | null = null, no: string[] = []): Review {
+  return {
+    id,
+    revieweeId,
+    teamId,
+    roleAccurate: !no.includes('role'),
+    skillsAccurate: !no.includes('skills'),
+    paceAccurate: !no.includes('pace'),
+    goalAccurate: !no.includes('goal'),
+    note,
+    createdAt,
+  }
+}
 
 const base = {
   emailVerified: true,
@@ -20,6 +38,8 @@ export const ME: Student = {
   ...base,
   id: 'me',
   name: 'You',
+  // An existing account without a username. The key is there, so usernames are on in the mock (AppData `usernamesOn`).
+  username: null,
   email: 'you@ufl.edu',
   major: 'Computer Science',
   year: 'Junior',
@@ -46,6 +66,7 @@ export const STUDENTS: Student[] = [
   {
     ...base,
     id: 'jordan',
+    username: 'jordan_writes',
     name: 'Jordan Lee',
     major: 'Statistics',
     year: 'Senior',
@@ -62,6 +83,7 @@ export const STUDENTS: Student[] = [
   {
     ...base,
     id: 'priya',
+    username: 'priya_builds',
     name: 'Priya Raman',
     major: 'Computer Science',
     year: 'Junior',
@@ -79,13 +101,14 @@ export const STUDENTS: Student[] = [
       { title: 'Club event site', role: 'Frontend and visual design' },
     ],
     reviews: [
-      { id: 'r1', teamId: 'x1', project: 'Web apps project', tags: ['on_time', 'responsive'], note: 'Always had her part done before our check-ins.', createdAt: '2026-04-28' },
-      { id: 'r2', teamId: 'x2', project: 'Intro SWE project', tags: ['quality_work', 'team_player'], createdAt: '2025-12-05' },
+      review('r1', 'priya', 'x1', '2026-04-28T15:00:00.000Z', 'Always had her part done before our check-ins.'),
+      review('r2', 'priya', 'x2', '2025-12-05T15:00:00.000Z'),
     ],
   },
   {
     ...base,
     id: 'marcus',
+    username: 'marcus_codes',
     name: 'Marcus Bell',
     major: 'Computer Engineering',
     year: 'Senior',
@@ -98,13 +121,12 @@ export const STUDENTS: Student[] = [
     channel: 'discord',
     goal: 'strong_grade',
     pace: 'steady',
-    reviews: [
-      { id: 'r3', teamId: 'x3', project: 'Mobile app project', tags: ['quality_work'], createdAt: '2026-04-30' },
-    ],
+    reviews: [review('r3', 'marcus', 'x3', '2026-04-30T15:00:00.000Z')],
   },
   {
     ...base,
     id: 'sofia',
+    username: 'sofi_designs',
     name: 'Sofia Alvarez',
     major: 'Digital Arts & Sciences',
     year: 'Junior',
@@ -122,6 +144,7 @@ export const STUDENTS: Student[] = [
   {
     ...base,
     id: 'daniel',
+    username: 'dkim_dev',
     name: 'Daniel Kim',
     major: 'Computer Science',
     year: 'Senior',
@@ -133,13 +156,13 @@ export const STUDENTS: Student[] = [
     channel: 'slack',
     goal: 'strong_grade',
     pace: 'steady',
-    reviews: [
-      { id: 'r4', teamId: 'x4', project: 'Databases project', tags: ['quality_work'], note: 'Great code, but hard to reach some weeks.', createdAt: '2026-04-20' },
-    ],
+    // Says "steady" on his profile; one teammate saw otherwise.
+    reviews: [review('r4', 'daniel', 'x4', '2026-04-20T15:00:00.000Z', 'Profile says steady, but most of his work landed the night before.', ['pace'])],
   },
   {
     ...base,
     id: 'kai',
+    username: 'kai_n',
     name: 'Kai Nakamura',
     major: 'Computer Science',
     year: 'Freshman',
@@ -155,6 +178,7 @@ export const STUDENTS: Student[] = [
   {
     ...base,
     id: 'omar',
+    username: 'omar_tests',
     name: 'Omar Haddad',
     major: 'Computer Engineering',
     year: 'Junior',
@@ -170,6 +194,7 @@ export const STUDENTS: Student[] = [
   {
     ...base,
     id: 'aisha',
+    username: 'aisha_ux',
     name: 'Aisha Okafor',
     major: 'Digital Arts & Sciences',
     year: 'Senior',
@@ -181,13 +206,12 @@ export const STUDENTS: Student[] = [
     channel: 'discord',
     goal: 'portfolio',
     pace: 'steady',
-    reviews: [
-      { id: 'r5', teamId: 'x5', project: 'UX studio project', tags: ['team_player', 'took_initiative'], createdAt: '2026-05-01' },
-    ],
+    reviews: [review('r5', 'aisha', 'x5', '2026-05-01T15:00:00.000Z')],
   },
   {
     ...base,
     id: 'ethan',
+    username: 'ebrooks',
     name: 'Ethan Brooks',
     major: 'Computer Science',
     year: 'Sophomore',
@@ -203,6 +227,8 @@ export const STUDENTS: Student[] = [
   {
     ...base,
     id: 'lena',
+    // No username: shows a student without a handle.
+    username: null,
     name: 'Lena Novak',
     major: 'Statistics',
     year: 'Junior',
@@ -218,6 +244,7 @@ export const STUDENTS: Student[] = [
   {
     ...base,
     id: 'hannah',
+    username: 'hannah_plans',
     name: 'Hannah Weiss',
     major: 'Data Science',
     year: 'Senior',
@@ -233,6 +260,7 @@ export const STUDENTS: Student[] = [
   {
     ...base,
     id: 'grace',
+    username: 'grace_proto',
     name: 'Grace Liu',
     major: 'Digital Arts & Sciences',
     year: 'Sophomore',
@@ -248,6 +276,7 @@ export const STUDENTS: Student[] = [
   {
     ...base,
     id: 'tomas',
+    username: 'tomas_go',
     name: 'Tomás Rivera',
     major: 'Computer Science',
     year: 'Senior',
@@ -263,6 +292,7 @@ export const STUDENTS: Student[] = [
   {
     ...base,
     id: 'ines',
+    username: 'ines_a11y',
     name: 'Ines Moreau',
     major: 'Computer Science',
     year: 'Sophomore',
@@ -281,6 +311,7 @@ export const STUDENTS: Student[] = [
   {
     ...base,
     id: 'rosa',
+    username: 'rosa_d',
     name: 'Rosa Delgado',
     major: 'Information Systems',
     year: 'Senior',
@@ -297,6 +328,7 @@ export const STUDENTS: Student[] = [
   {
     ...base,
     id: 'noah',
+    username: 'noahf',
     name: 'Noah Fischer',
     major: 'Computer Engineering',
     year: 'Sophomore',
@@ -308,6 +340,8 @@ export const STUDENTS: Student[] = [
     channel: 'email',
     goal: 'portfolio',
     pace: 'early',
+    // Written by the viewer for Club Budget Tracker (MOCK_REVIEWS_BY_VIEWER): reviewing Noah again answers 409.
+    reviews: [review('r6', 'noah', 't2', '2026-10-20T15:00:00.000Z')],
     lookingForTeam: false,
   },
 ]
@@ -339,7 +373,7 @@ export const MOCK_EMAILS: Record<string, string> = {
 export const TEAM: Team = {
   id: 't1',
   project: 'Database Project',
-  course: 'Database Systems',
+  course: 'CIS4301',
   size: 4,
   ownerId: 'me',
   memberIds: ['me', 'jordan'],
@@ -357,7 +391,7 @@ export const TEAM: Team = {
 export const SIDE_PROJECT: Team = {
   id: 't2',
   project: 'Club Budget Tracker',
-  course: 'Software Engineering',
+  course: 'CEN3031',
   size: 4,
   ownerId: 'rosa',
   memberIds: ['rosa', 'noah', 'me'],
@@ -375,7 +409,7 @@ export const INVITING_TEAMS: Team[] = [
   {
     id: 'mx-gatoreats',
     project: 'Gator Eats',
-    course: 'SwampHacks (personal)',
+    course: 'CIS4914',
     size: 4,
     ownerId: 'sofia',
     memberIds: ['sofia', 'kai'],
@@ -387,7 +421,7 @@ export const INVITING_TEAMS: Team[] = [
   {
     id: 'mx-scheduler',
     project: 'Shell Scheduler',
-    course: 'Operating Systems',
+    course: 'COP4600',
     size: 3,
     ownerId: 'ethan',
     memberIds: ['ethan', 'lena'],
@@ -416,3 +450,6 @@ export const MOCK_JOIN_REQUESTS: [string, string, number][] = [
   ['t1', 'omar', 5],
   ['t1', 'aisha', 52],
 ]
+
+/** Server-only table: reviews the viewer already wrote, as [revieweeId, teamId]. One per (reviewer, reviewee, team). */
+export const MOCK_REVIEWS_BY_VIEWER: [string, string][] = [['noah', 't2']]

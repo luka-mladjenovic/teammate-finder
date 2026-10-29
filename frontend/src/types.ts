@@ -25,17 +25,30 @@ export type Year = 'Freshman' | 'Sophomore' | 'Junior' | 'Senior' | 'Graduate'
 /** "Time per project": hours a week the student can usually give one course project. Not the same as their free times. */
 export type WeeklyHours = '1-5' | '6-10' | '11-15' | '15+'
 
-export type ReviewTag = 'on_time' | 'responsive' | 'quality_work' | 'team_player' | 'took_initiative'
-
+/**
+ * An anonymous honesty review (iteration 3, docs/iteration-3/contract-additions.md section 3): did this person's
+ * profile match how they really worked? Not a grade of their work, and availability isn't rated. Never says who
+ * wrote it, not even to the person reviewed. One per (reviewer, reviewee, team).
+ */
 export interface Review {
   id: string
-  /** Only teammates from a team formed in the app can review each other. */
+  revieweeId: string
   teamId: string
-  project: string
-  tags: ReviewTag[]
-  note?: string
+  /** Did they fill the role(s) they claimed? */
+  roleAccurate: boolean
+  /** Did they have the skills they listed? */
+  skillsAccurate: boolean
+  /** Did they work at the pace they claimed? */
+  paceAccurate: boolean
+  /** Did they aim for the goal they stated? */
+  goalAccurate: boolean
+  /** Optional free text, at most 300 characters. */
+  note: string | null
   createdAt: string
 }
+
+/** Body of POST /api/students/:id/reviews. Exactly these five keys. */
+export type NewReview = Pick<Review, 'roleAccurate' | 'skillsAccurate' | 'paceAccurate' | 'goalAccurate' | 'note'>
 
 export interface PastWork {
   title: string
@@ -46,6 +59,12 @@ export interface PastWork {
 export interface Student {
   id: string
   name: string
+  /**
+   * Public handle, shown as @handle: 3-20 characters of a-z, 0-9 and _ (rules: lib/username.ts). `null` until set.
+   * Never generated or derived from the email. Optional here only because an older server leaves the key out
+   * entirely; the app then hides the field and every @handle (see AppData `usernamesOn`).
+   */
+  username?: string | null
   /**
    * Only on your own record (GET /api/me). Other students' emails come from
    * GET /api/students/:id/contact, and only while you share a project.
@@ -74,6 +93,7 @@ export interface Student {
 export type ProfileUpdate = Pick<
   Student,
   | 'name'
+  | 'username'
   | 'major'
   | 'year'
   | 'roles'
@@ -96,11 +116,15 @@ export const MAX_TEAM_SIZE = 8
 /** Most projects one student can be in at once. */
 export const MAX_PROJECTS = 10
 
+/** A course code from GET /api/courses, uppercase with no spaces, e.g. "CIS4301". The backend owns the list. */
+export type CourseCode = string
+
 export interface Team {
   id: string
   /** Project name, e.g. "Database Project". */
   project: string
-  course: string
+  /** One of GET /api/courses (iteration 3). Older rows may still hold free text; the app shows it as stored. */
+  course: CourseCode
   /** Target size including the owner, 2-8. */
   size: number
   /** Who created the project. Always in memberIds. */
@@ -163,7 +187,7 @@ export interface TeamPost {
   /** Same as the team's id. */
   id: string
   project: string
-  course: string
+  course: CourseCode
   members: TeamPostMember[]
   rolesNeeded: Role[]
   goal: Goal
