@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, session , request
-from app.models import Student, Team, JoinRequest, Challenge, hash_code, Membership, Invite
+from app.models import Student, Team, JoinRequest, Challenge, hash_code, Membership, Invite, Review
 import re
 import random
 from datetime import datetime, timedelta, timezone
@@ -101,7 +101,19 @@ def get_me():
     student = current_student()
     if not student:
         return jsonify({"error": "not_signed_in"}), 401
-    return jsonify(student.to_dict(include_email=True))
+
+    my_team_ids = {m.team_id for m in Membership.query.filter_by(student_id=student.id).all()}
+    teammate_ids = set()
+    if my_team_ids:
+        memberships = Membership.query.filter(Membership.team_id.in_(my_team_ids)).all()
+        teammate_ids = {m.student_id for m in memberships if m.student_id != student.id}
+
+    already_reviewed = {r.reviewee_id for r in Review.query.filter_by(reviewer_id=student.id).all()}
+    reviewable_ids = list(teammate_ids - already_reviewed)
+
+    data = student.to_dict(include_email=True)
+    data["reviewableIds"] = reviewable_ids
+    return jsonify(data)
 
 @main.route("/api/students", methods=["GET"])
 def get_students():
@@ -824,3 +836,68 @@ def get_courses():
     if not me:
         return jsonify({"error": "not_signed_in"}), 401
     return jsonify(sorted(VALID_COURSES))
+
+@main.route("/api/students/<student_id>/reviews", methods=["POST"])
+def create_review(student_id):
+    me = current_student()
+    if not me:
+        return jsonify({"error": "not_signed_in"}), 401
+
+    if student_id == me.id:
+        return jsonify({"error": "cannot_review_self", "message": "You can't review yourself."}), 400
+
+    reviewee = Student.query.get(student_id)
+    if not reviewee:
+        return jsonify({"error": "not_found"}), 404
+
+    my_team_ids = {m.team_id for m in Membership.query.filter_by(student_id=me.id).all()}
+    their_team_ids = {m.team_id for m in Membership.query.filter_by(student_id=student_id).all()}
+    if not (my_team_ids & their_team_ids):
+        return jsonify({
+            "error": "never_shared_team",
+            "message": "You can only review someone you currently share a team with.",
+        }), 403
+
+    existing = Review.query.filter_by(reviewer_id=me.id, reviewee_id=student_id).first()
+    if existing:
+        return jsonify({"error": "already_reviewed", "message": "You've already reviewed this person."}), 409
+
+    data = request.get_json() or {}
+    errors = {}
+    values = {}
+    for field in ["roleAccurate", "skillsAccurate", "paceAccurate", "goalAccurate"]:
+        val = data.get(field)
+        if not isinstance(val, bool):
+            errors[field] = "Must be true or false."
+        else:
+            values[field] = val
+
+    note = clean_text(data.get("note") or "")
+    if len(note) > 300:
+        errors["note"] = "Must be 300 characters or fewer."
+
+    if errors:
+        return jsonify({"error": "validation", "fields": errors}), 400
+
+    review = Review(
+        reviewer_id=me.id,
+        reviewee_id=student_id,
+        role_accurate=values["roleAccurate"],
+        skills_accurate=values["skillsAccurate"],
+        pace_accurate=values["paceAccurate"],
+        goal_accurate=values["goalAccurate"],
+        note=note or None,
+    )
+    db.session.add(review)
+    db.session.commit()
+    return jsonify(review.to_dict()), 201
+
+
+@main.route("/api/students/<student_id>/reviews", methods=["GET"])
+def get_reviews(student_id):
+    me = current_student()
+    if not me:
+        return jsonify({"error": "not_signed_in"}), 401
+
+    reviews = Review.query.filter_by(reviewee_id=student_id).order_by(Review.created_at.desc()).all()
+    return jsonify([r.to_dict() for r in reviews])
