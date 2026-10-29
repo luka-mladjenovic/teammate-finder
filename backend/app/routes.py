@@ -112,14 +112,15 @@ def get_students():
     my_teams = Team.query.join(Membership).filter(Membership.student_id == me.id).all()
     teammate_ids = {sid for t in my_teams for sid in t.member_ids}
 
-    query = Student.query.filter(
-        (Student.looking_for_team == True) | (Student.id.in_(teammate_ids))
-    )
-
     search = (request.args.get("q") or "").strip()
     if search:
-        query = query.filter(
-            Student.name.ilike(f"%{search}%") | Student.username.ilike(f"%{search}%")
+        escaped = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        query = Student.query.filter(
+            Student.name.ilike(f"%{escaped}%", escape="\\") | Student.username.ilike(f"%{escaped}%", escape="\\")
+        )
+    else:
+        query = Student.query.filter(
+            (Student.looking_for_team == True) | (Student.id.in_(teammate_ids))
         )
 
     students = query.all()
@@ -144,9 +145,10 @@ def get_team_posts():
 
     search = (request.args.get("q") or "").strip().lower()
     if search:
+        normalized_search = search.replace(" ", "")
         all_teams = [
             t for t in all_teams
-            if search in t.project.lower() or search in t.course.lower()
+            if search in t.project.lower() or normalized_search == t.course.lower()
         ]
 
     posts = []
@@ -193,9 +195,11 @@ def request_email_code():
         return jsonify({"error": "rate_limited", "message": "Too many requests. Try again later.", "retryAfter": 3600}), 429
 
     # generate and store the code
+    name = (data.get("name") or "").strip()
     code = f"{random.randint(0, 999999):06d}"
     challenge = Challenge(
         email=email,
+        name=name or None,
         code_hash=hash_code(code),
         attempts_left=5,
         expires_at=now + timedelta(minutes=10),
@@ -246,7 +250,7 @@ def verify_email_code():
     student = Student.query.filter_by(email=challenge.email).first()
     is_new_account = student is None
     if is_new_account:
-        student = Student(email=challenge.email, email_verified=True)
+        student = Student(email=challenge.email, name=challenge.name or "", email_verified=True)
         db.session.add(student)
     else:
         student.email_verified = True
@@ -404,22 +408,28 @@ def update_me():
             me.looking_for_team = val
 
     if "username" in data:
-        username = (data["username"] or "").strip().lower()
-        if not USERNAME_PATTERN.match(username):
-            errors["username"] = "3-20 characters, letters, numbers, and underscores only."
+        raw = data["username"]
+        if raw is None or raw == "":
+            me.username = None
         else:
-            existing = Student.query.filter(Student.username == username, Student.id != me.id).first()
-            if existing:
-                return jsonify({
-                    "error": "username_taken",
-                    "message": "That username is taken.",
-                    "fields": {"username": "That username is taken."},
-                }), 409
-            me.username = username
-            
+            username = raw.strip().lower()
+            if not USERNAME_PATTERN.match(username):
+                errors["username"] = "3-20 characters, letters, numbers, and underscores only."
+            elif username == me.email.split("@")[0].lower():
+                errors["username"] = "Choose a username that isn't your email."
+            else:
+                existing = Student.query.filter(Student.username == username, Student.id != me.id).first()
+                if existing:
+                    return jsonify({
+                        "error": "username_taken",
+                        "message": "That username is taken.",
+                        "fields": {"username": "That username is taken."},
+                    }), 409
+                me.username = username
+
     if errors:
         return jsonify({"error": "validation", "fields": errors}), 400
-    
+
     db.session.commit()
     return jsonify(me.to_dict(include_email=True)), 200
 
