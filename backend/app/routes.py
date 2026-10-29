@@ -602,6 +602,13 @@ def remove_member(project_id, student_id):
     if not team or me.id not in team.member_ids:
         return jsonify({"error": "not_found"}), 404
 
+    # leaving: a member who isn't the owner may remove themselves (the owner deletes the project instead)
+    if student_id == me.id and team.owner_id != me.id:
+        membership = Membership.query.filter_by(team_id=project_id, student_id=me.id).first()
+        db.session.delete(membership)
+        db.session.commit()
+        return "", 204
+
     if team.owner_id != me.id:
         return jsonify({"error": "not_owner"}), 403
 
@@ -613,6 +620,27 @@ def remove_member(project_id, student_id):
         return jsonify({"error": "not_found"}), 404
 
     db.session.delete(membership)
+    db.session.commit()
+
+    return "", 204
+
+@main.route("/api/projects/<project_id>", methods=["DELETE"])
+def delete_project(project_id):
+    me = current_student()
+    if not me:
+        return jsonify({"error": "not_signed_in"}), 401
+
+    team = Team.query.get(project_id)
+    if not team or me.id not in team.member_ids:
+        return jsonify({"error": "not_found"}), 404
+
+    if team.owner_id != me.id:
+        return jsonify({"error": "not_owner"}), 403
+
+    # Invite and JoinRequest have no cascade from Team, so delete them first; memberships go with the team
+    Invite.query.filter_by(project_id=project_id).delete()
+    JoinRequest.query.filter_by(post_id=project_id).delete()
+    db.session.delete(team)
     db.session.commit()
 
     return "", 204
@@ -911,3 +939,15 @@ def get_reviews(student_id):
 
     reviews = Review.query.filter_by(reviewee_id=student_id).order_by(Review.created_at.desc()).all()
     return jsonify([r.to_dict() for r in reviews])
+
+@main.route("/api/students/<student_id>", methods=["GET"])
+def get_student(student_id):
+    me = current_student()
+    if not me:
+        return jsonify({"error": "not_signed_in"}), 401
+
+    student = Student.query.get(student_id)
+    if not student:
+        return jsonify({"error": "not_found"}), 404
+
+    return jsonify(student.to_dict(include_email=(student.id == me.id)))
