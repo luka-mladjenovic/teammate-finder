@@ -2,23 +2,40 @@
 // Without VITE_API_URL every call runs against a small in-memory mock server (below) with simulated
 // latency, so loading states are visible. Set VITE_API_URL=https://<host> to call the Flask API instead:
 // each function already sends the real method, path and JSON body, so the backend only implements endpoints.
-import { INVITING_TEAMS, ME, MOCK_EMAILS, MOCK_INVITES, MOCK_JOIN_REQUESTS, MOCK_SENT_INVITES, PROJECTS, STUDENTS } from '../data/mock'
+import {
+  INVITING_TEAMS,
+  ME,
+  MOCK_EMAILS,
+  MOCK_INVITES,
+  MOCK_JOIN_REQUESTS,
+  MOCK_REVIEWS_BY_VIEWER,
+  MOCK_SENT_INVITES,
+  PROJECTS,
+  STUDENTS,
+} from '../data/mock'
 import { TEAM_POSTS } from '../data/teamPosts'
 import { cleanSlots, hoursOf, SLOT_KEY_PATTERN } from '../lib/availability'
+import { MOCK_COURSES } from '../lib/courses'
 import { commonSlots } from '../lib/matching'
 import { checkNewProject, cleanNewProject, isFull } from '../lib/projects'
+import { checkNewReview } from '../lib/reviews'
+import { findStudents, findTeamPosts, normalizeQuery, teamSearchParam } from '../lib/search'
 import { checkUfEmail } from '../lib/ufEmail'
+import { USERNAME_PATTERN, USERNAME_RULE_MESSAGE, USERNAME_TAKEN_MESSAGE, usernameProblem } from '../lib/username'
 import {
   MAX_PROJECTS,
   type ApiErrorBody,
   type AvailabilityResult,
   type Contact,
+  type CourseCode,
   type DecisionInput,
   type EmailChallenge,
   type Invite,
   type JoinRequest,
   type NewProject,
+  type NewReview,
   type ProfileUpdate,
+  type Review,
   type SlotKey,
   type Student,
   type Team,
@@ -152,6 +169,10 @@ const db = {
   // The prototype starts signed in as the demo viewer.
   signedIn: true,
   me: structuredClone(ME),
+  /** Everyone else. A copy, so a new review shows up in later GET /api/students answers. */
+  students: structuredClone(STUDENTS),
+  /** Reviews the viewer wrote: [revieweeId, teamId]. Never sent to any client (reviews are anonymous). */
+  reviewsByViewer: structuredClone(MOCK_REVIEWS_BY_VIEWER),
   projects: DEMO_NO_PROJECTS ? [] : structuredClone(PROJECTS),
   /** Invites sent from the viewer's projects. */
   invites: (DEMO_NO_PROJECTS ? [] : MOCK_SENT_INVITES).map(([projectId, studentId, h], i): Invite => ({
@@ -203,7 +224,7 @@ function myProject(id: string): Team {
 }
 
 function studentExists(id: string) {
-  return id === db.me.id || STUDENTS.some((s) => s.id === id)
+  return id === db.me.id || db.students.some((s) => s.id === id)
 }
 
 function validateSlots(list: unknown) {
@@ -268,9 +289,28 @@ function mockVerify(challengeId: string, code: string): VerifyResult {
   return { me: db.me, isNewAccount }
 }
 
+/**
+ * PUT /api/me `username`, as in the contract: trimmed and lowercased on save, 3-20 of a-z 0-9 _, unique ignoring
+ * case. `null` removes it. Also turns down the part of the viewer's UF email before the @ (a rule suggested to Luka;
+ * the form checks it first, so the UI never gets here with one).
+ */
+function mockUsername(raw: unknown): string | null {
+  if (raw === null) return null
+  const username = typeof raw === 'string' ? raw.trim().toLowerCase() : ''
+  if (!USERNAME_PATTERN.test(username)) fail(400, 'validation', 'Some fields need fixing.', { fields: { username: USERNAME_RULE_MESSAGE } })
+  const problem = usernameProblem(username, db.me.email)
+  if (problem) fail(400, 'validation', 'Some fields need fixing.', { fields: { username: problem } })
+  // Every name in the mock data counts as taken (the viewer is never in db.students).
+  if (db.students.some((s) => s.username?.toLowerCase() === username)) {
+    fail(409, 'username_taken', USERNAME_TAKEN_MESSAGE, { fields: { username: USERNAME_TAKEN_MESSAGE } })
+  }
+  return username
+}
+
 function mockCreateProject(input: NewProject): Team {
   const p = cleanNewProject(input)
-  const errors = checkNewProject(p, db.projects)
+  // Like the server: `course` must be one of GET /api/courses ("Pick a course from the list." otherwise).
+  const errors = checkNewProject(p, db.projects, MOCK_COURSES)
   if (errors.project && errors.project.startsWith('You already have')) {
     fail(409, 'duplicate_name', errors.project, { fields: { project: errors.project } })
   }
@@ -308,7 +348,7 @@ function mockProjectInvites(projectId: string): Invite[] {
   return db.invites
     .filter((i) => i.projectId === projectId && i.status === 'pending')
     .flatMap((i) => {
-      const student = STUDENTS.find((s) => s.id === i.studentId)
+      const student = db.students.find((s) => s.id === i.studentId)
       return student ? [{ ...i, student }] : []
     })
 }
@@ -351,7 +391,7 @@ function mockCancelRequest(postId: string) {
 
 /** A team as non-members see it, like the server's team_summary(). */
 function mockSummary(t: Team): TeamPost {
-  const people = t.memberIds.map((id) => (id === db.me.id ? db.me : STUDENTS.find((s) => s.id === id))).filter((s): s is Student => Boolean(s))
+  const people = t.memberIds.map((id) => (id === db.me.id ? db.me : db.students.find((s) => s.id === id))).filter((s): s is Student => Boolean(s))
   const covered = new Set(people.flatMap((m) => m.roles))
   return {
     id: t.id,
@@ -405,7 +445,7 @@ function mockProjectRequests(projectId: string): JoinRequest[] {
   return db.incoming
     .filter((r) => r.postId === projectId && r.status === 'pending')
     .flatMap((r) => {
-      const student = STUDENTS.find((s) => s.id === r.studentId)
+      const student = db.students.find((s) => s.id === r.studentId)
       return student ? [{ ...r, student }] : []
     })
 }
@@ -426,6 +466,35 @@ function mockRespondToRequest(projectId: string, requestId: string, decision: De
   for (const i of db.invites) if (i.projectId === p.id && i.studentId === sid && i.status === 'pending') i.status = 'accepted'
   cancelInvitesIfFull(p)
   return req
+}
+
+/** POST /api/students/:id/reviews, with the contract's rules. The team is the first project you share, in join order. */
+function mockReview(studentId: string, body: NewReview): Review {
+  requireSession()
+  const target = db.students.find((s) => s.id === studentId) ?? fail(404, 'not_found', 'No such student.')
+  const shared = db.projects.filter((p) => p.memberIds.includes(db.me.id) && p.memberIds.includes(studentId))
+  if (shared.length === 0) fail(403, 'never_shared_team', "You haven't been on a project with this student.")
+  const fields = checkNewReview(body)
+  if (Object.keys(fields).length > 0) fail(400, 'validation', 'Some fields need fixing.', { fields })
+  const team = shared[0]
+  if (db.reviewsByViewer.some(([who, teamId]) => who === studentId && teamId === team.id)) {
+    fail(409, 'already_reviewed', 'You already reviewed this student for this project.')
+  }
+  const note = typeof body.note === 'string' && body.note.trim() ? body.note.trim() : null
+  const review: Review = {
+    id: nextId('rv_'),
+    revieweeId: studentId,
+    teamId: team.id,
+    roleAccurate: body.roleAccurate,
+    skillsAccurate: body.skillsAccurate,
+    paceAccurate: body.paceAccurate,
+    goalAccurate: body.goalAccurate,
+    note,
+    createdAt: now(),
+  }
+  target.reviews.push(review)
+  db.reviewsByViewer.push([studentId, team.id])
+  return review
 }
 
 function mockContact(studentId: string): Contact {
@@ -462,11 +531,14 @@ export const api = {
       requireSession()
       return db.me
     }).then(withCleanSlots),
-  /** PUT /api/me: save profile setup (any subset of ProfileUpdate). 400 validation | invalid_time_block. */
+  /** PUT /api/me: save profile setup (any subset of ProfileUpdate). 400 validation {fields} | invalid_time_block,
+   *  409 username_taken {fields: {username}}. `username`: a string, or null to remove it; sent only to a server whose
+   *  payloads carry the key (AppData `usernamesOn`). */
   updateMe: (patch: Partial<ProfileUpdate>) =>
     put<Student>('/api/me', patch, () => {
       const availability = patch.availability === undefined ? db.me.availability : validateSlots(patch.availability)
-      db.me = { ...db.me, ...patch, availability }
+      const username = 'username' in patch ? mockUsername(patch.username) : db.me.username
+      db.me = { ...db.me, ...patch, availability, username }
       return db.me
     }).then(withCleanSlots),
   /** PUT /api/me/availability: 400 not_a_list | invalid_time_block {invalid}. An empty list is valid. */
@@ -478,19 +550,46 @@ export const api = {
 
   // Students (never carry email)
   /** GET /api/students: students looking for a team plus everyone on your projects. */
-  students: () => get<Student[]>('/api/students', () => STUDENTS).then(allWithCleanSlots),
+  students: () => get<Student[]>('/api/students', () => db.students).then(allWithCleanSlots),
+  /**
+   * GET /api/students?q= (contract section 2): ALL students (also those not looking for a team), never the viewer,
+   * whose name or username contains `q`, ignoring case. Same Student shape (no email). The answer is filtered again
+   * with lib/search.ts, so a server that ignores `q` or matches more (LIKE treats "_" as a wildcard) still shows
+   * the right people. The UI sends 2-50 characters, without a leading "@".
+   */
+  searchStudents: (q: string) => {
+    const query = normalizeQuery(q)
+    return get<Student[]>(`/api/students?q=${seg(query)}`, () => findStudents(db.students, query, db.me.id)).then((list) =>
+      findStudents(allWithCleanSlots(list), query),
+    )
+  },
   /** GET /api/students/:id. 404 not_found. */
   student: (id: string) =>
     get<Student>(`/api/students/${seg(id)}`, () =>
-      id === db.me.id ? db.me : (STUDENTS.find((s) => s.id === id) ?? fail(404, 'not_found', 'No such student.')),
+      id === db.me.id ? db.me : (db.students.find((s) => s.id === id) ?? fail(404, 'not_found', 'No such student.')),
     ).then(withCleanSlots),
   /** GET /api/students/:id/contact: only while you share a project. 401, 403 contact_locked, 404. */
   contact: (id: string) => get<Contact>(`/api/students/${seg(id)}/contact`, () => mockContact(id)),
+  /**
+   * POST /api/students/:id/reviews → 201 Review (contract section 3). Body: exactly the five NewReview keys. Anonymous:
+   * the server keeps who wrote it to itself. 400 validation {fields: {note}}, 403 never_shared_team,
+   * 409 already_reviewed, 404 not_found. A server without the route answers 404/405 (or fails the CORS preflight).
+   */
+  reviewStudent: (id: string, body: NewReview) => post<Review>(`/api/students/${seg(id)}/reviews`, body, () => mockReview(id, body)),
+
+  // Courses
+  /** GET /api/courses → 200 CourseCode[] (uppercase, no spaces, sorted). 401. AppData calls it at most once a session. */
+  courses: () =>
+    get<CourseCode[]>('/api/courses', () => {
+      requireSession()
+      return [...MOCK_COURSES]
+    }),
 
   // Projects (D4). One project = one team.
   /** GET /api/projects: your projects in join order ([] if none). */
   myProjects: () => get<Team[]>('/api/projects', () => db.projects.filter((p) => p.memberIds.includes(db.me.id))),
-  /** POST /api/projects → 201 Team. 400 validation {fields}, 409 duplicate_name | project_limit. */
+  /** POST /api/projects → 201 Team. 400 validation {fields} (`fields.course` for a code not in GET /api/courses),
+   *  409 duplicate_name | project_limit. */
   createProject: (p: NewProject) => post<Team>('/api/projects', p, () => mockCreateProject(p)),
   /** POST /api/projects/:id/invites → 201 Invite (pending; the prototype accepts at once). 404 for non-members, 409 already_member | team_full | already_invited. */
   invite: (projectId: string, studentId: string) =>
@@ -510,6 +609,18 @@ export const api = {
   // Open teams and join requests
   /** GET /api/team-posts: teams with open spots, never one you're in. */
   teamPosts: () => get<TeamPost[]>('/api/team-posts', mockTeamPosts).then(allWithCleanSlots),
+  /**
+   * GET /api/team-posts?q= (contract section 1): the same posts (open spots, never one you're in) whose project name
+   * contains `q` or whose course is `q` as a code, ignoring case. A query that looks like a code is sent compact and
+   * uppercase ("cis 4301" → q=CIS4301). Filtered again with lib/search.ts, like searchStudents.
+   */
+  searchTeamPosts: (q: string) => {
+    const query = normalizeQuery(q)
+    const param = teamSearchParam(query)
+    return get<TeamPost[]>(`/api/team-posts?q=${seg(param)}`, () => findTeamPosts(mockTeamPosts(), param)).then((list) =>
+      findTeamPosts(allWithCleanSlots(list), query),
+    )
+  },
   /** GET /api/requests/mine: your join requests. */
   myRequests: () => get<JoinRequest[]>('/api/requests/mine', () => db.requests),
   /** POST /api/team-posts/:id/requests → 201 JoinRequest (pending). 409 already_member | already_requested | team_full. */

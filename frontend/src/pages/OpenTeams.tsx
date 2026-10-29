@@ -1,18 +1,20 @@
 import '../styles/teams.css'
 import confetti from 'canvas-confetti'
 import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from 'motion/react'
-import { useEffect, useId, useMemo, useRef, useState, type Ref } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type Ref } from 'react'
 import { USING_MOCK } from '../api'
 import { AvailabilityGrid } from '../components/AvailabilityGrid'
 import { Avatar } from '../components/Avatar'
 import { SHARED_HOURS_OPTIONS } from '../components/FilterBar'
 import { MatchReasons } from '../components/MatchReasons'
+import { SearchField } from '../components/SearchField'
 import { SignedOutPage } from '../components/SignedOutPage'
 import { DAY_LABEL, GOAL_LABEL, PACE_LABEL, ROLE_LABEL, SLOT_LABEL, SLOT_TIME } from '../labels'
 import { formatH, formatHours, groupByBlock, hoursOf } from '../lib/availability'
 import { joinWords } from '../lib/contact'
 import { sharedHoursWith, sharedSlots, teamFitReasons } from '../lib/teamFit'
 import { useArrivalFocus } from '../lib/useArrivalFocus'
+import { useSearch, type Found } from '../lib/useSearch'
 import { useAppData } from '../state/AppData'
 import type { Goal, Role, SlotKey, Student, TeamPost } from '../types'
 
@@ -36,6 +38,33 @@ const SPRING = { type: 'spring', stiffness: 380, damping: 32 } as const
 /** Only used for the "Best fit" sort: passed checks minus warnings. Shared hours only break ties. */
 function fitScore(post: TeamPost, viewer: Student, myRoles: Role[]) {
   return teamFitReasons(post, viewer, myRoles).reduce((n, r) => n + (r.kind === 'good' ? 1 : -1), 0)
+}
+
+/** The filters a team misses, named as on the page ("Roles" = the "Roles you can fill" chips). */
+function missedFilters(post: TeamPost, f: TeamFilters, viewer: Student): string[] {
+  const missed: string[] = []
+  if (f.roles.length > 0 && !post.rolesNeeded.some((r) => f.roles.includes(r))) missed.push('Roles')
+  if (f.goal !== 'any' && post.goal !== f.goal) missed.push('Goal')
+  if (sharedHoursWith(post, viewer) < f.minSharedHours) missed.push('Shared time')
+  return missed
+}
+
+/** The Sort menu's order. Best fit: checks, then shared hours, then newest. */
+function sortOrder(sort: SortKey, viewer: Student, myRoles: Role[]): (a: TeamPost, b: TeamPost) => number {
+  const newest = (a: TeamPost, b: TeamPost) => b.postedAt.localeCompare(a.postedAt)
+  const checks = (a: TeamPost, b: TeamPost) => fitScore(b, viewer, myRoles) - fitScore(a, viewer, myRoles)
+  const shared = (a: TeamPost, b: TeamPost) => sharedHoursWith(b, viewer) - sharedHoursWith(a, viewer)
+  const fit = (a: TeamPost, b: TeamPost) => checks(a, b) || shared(a, b)
+  if (sort === 'newest') return newest
+  if (sort === 'shared') return (a, b) => shared(a, b) || fit(a, b)
+  return (a, b) => fit(a, b) || newest(a, b)
+}
+
+/** "2 teams found for “mobile” · 1 fit your filters". */
+function foundText(n: number, fit: number, q: string) {
+  const found = `${n} team${n === 1 ? '' : 's'} found for “${q}”`
+  if (n === 0) return found
+  return `${found} · ${fit === 0 ? 'none fit your filters' : `${fit} fit your filters`}`
 }
 
 function postedLabel(iso: string) {
@@ -89,10 +118,42 @@ function burstFrom(el: HTMLElement | null) {
 /* ---------- Page ---------- */
 
 export function OpenTeams() {
-  const { loading, error, session, viewer, teamPosts, requestedPostIds: requested, requestToJoin, cancelRequest } = useAppData()
+  const {
+    loading,
+    error,
+    session,
+    viewer,
+    projects,
+    teamPosts,
+    requestedPostIds: requested,
+    requestToJoin,
+    cancelRequest,
+    searchText,
+    setSearchText,
+    recallSearch,
+    rememberSearch,
+    searchTeamPosts,
+  } = useAppData()
   const rolesLabelId = useId()
   const sharedDescId = useId()
   const headingRef = useArrivalFocus(!loading && Boolean(viewer))
+  const searchRef = useRef<HTMLInputElement>(null)
+
+  // Team search by project name or full course code (docs/iteration-3/search-and-usernames.md C). The text lives in
+  // AppData for the session.
+  const recall = useCallback(() => recallSearch('teams'), [recallSearch])
+  const remember = useCallback((found: Found<TeamPost>) => rememberSearch('teams', found), [rememberSearch])
+  const search = useSearch({ text: searchText.teams, search: searchTeamPosts, recall, remember })
+  const setText = (text: string) => setSearchText('teams', text)
+  const clearSearch = () => {
+    setText('')
+    searchRef.current?.focus()
+  }
+  // The button goes away once the search works, so keep keyboard users in the field (like Clear search).
+  const retrySearch = () => {
+    searchRef.current?.focus()
+    search.retry()
+  }
 
   const defaults = useMemo<TeamFilters>(
     () => ({ roles: viewer?.roles ?? [], goal: 'any', minSharedHours: 0, sort: 'fit' }),
@@ -110,24 +171,28 @@ export function OpenTeams() {
 
   const openPosts = useMemo(() => teamPosts.filter((p) => p.members.length < p.size), [teamPosts])
 
+  // The default list (no search): open teams that pass every filter.
   const results = useMemo(() => {
     if (!viewer) return []
-    const list = openPosts.filter(
-      (p) =>
-        (f.roles.length === 0 || p.rolesNeeded.some((r) => f.roles.includes(r))) &&
-        (f.goal === 'any' || p.goal === f.goal) &&
-        sharedHoursWith(p, viewer) >= f.minSharedHours,
-    )
-    const newest = (a: TeamPost, b: TeamPost) => b.postedAt.localeCompare(a.postedAt)
-    const checks = (a: TeamPost, b: TeamPost) => fitScore(b, viewer, myRoles) - fitScore(a, viewer, myRoles)
-    const shared = (a: TeamPost, b: TeamPost) => sharedHoursWith(b, viewer) - sharedHoursWith(a, viewer)
-    const fit = (a: TeamPost, b: TeamPost) => checks(a, b) || shared(a, b)
-    const sorted = [...list]
-    if (f.sort === 'newest') sorted.sort(newest)
-    if (f.sort === 'fit') sorted.sort((a, b) => fit(a, b) || newest(a, b))
-    if (f.sort === 'shared') sorted.sort((a, b) => shared(a, b) || fit(a, b))
-    return sorted
+    const list = openPosts.filter((p) => missedFilters(p, f, viewer).length === 0)
+    return list.sort(sortOrder(f.sort, viewer, myRoles))
   }, [viewer, openPosts, f, myRoles])
+
+  // Search results: filters mark teams instead of hiding them. Fits first, then the rest with a note; the Sort
+  // menu applies within each group. Same visibility as the default list: open spots only, never one you're in.
+  const searched = useMemo(() => {
+    if (!search.found || !viewer) return undefined
+    const mine = new Set(projects.map((p) => p.id))
+    const rows = search.found.items
+      .filter((p) => p.members.length < p.size && !mine.has(p.id))
+      .map((post) => {
+        const missed = missedFilters(post, f, viewer)
+        return { post, fit: missed.length === 0, notes: missed.length > 0 ? [`Outside your filters: ${missed.join(', ')}`] : [] }
+      })
+    const order = sortOrder(f.sort, viewer, myRoles)
+    rows.sort((a, b) => Number(b.fit) - Number(a.fit) || order(a.post, b.post))
+    return { q: search.found.q, rows, fit: rows.filter((r) => r.fit).length }
+  }, [search.found, viewer, projects, f, myRoles])
 
   const set = <K extends keyof TeamFilters>(k: K, v: TeamFilters[K]) => setFilters({ ...f, [k]: v })
   const toggleRole = (r: Role) =>
@@ -173,6 +238,19 @@ export function OpenTeams() {
           <div className="small">{sent === 0 ? 'No requests sent yet' : `${sent} request${sent === 1 ? '' : 's'} sent`}</div>
         </div>
       </section>
+
+      <SearchField
+        landmark="Search teams"
+        label="Search open teams"
+        placeholder="Project name or course code"
+        hint="Type a project name, or a full course code such as CIS4301. Only teams with open spots show, never one you're in."
+        value={searchText.teams}
+        onChange={setText}
+        onSubmit={search.submit}
+        tooShort={search.tooShort}
+        busy={search.busy}
+        inputRef={searchRef}
+      />
 
       <section className="teams-filters" role="search" aria-label="Filter teams">
         <div className="filterbar teams-filterbar">
@@ -233,8 +311,16 @@ export function OpenTeams() {
         </div>
       </section>
 
+      {/* Changes once per finished search, never while one runs. */}
       <div className="results-meta small muted" aria-live="polite">
-        {loading ? 'Loading teams…' : `${results.length} team${results.length === 1 ? ' matches' : 's match'}`}
+        {loading
+          ? 'Loading teams…'
+          : search.error
+            ? // A trailing space on every other failure makes a repeated "Search failed." announce again.
+              `Search failed.${search.failures % 2 === 0 ? ' ' : ''}`
+            : searched
+              ? foundText(searched.rows.length, searched.fit, searched.q)
+              : `${results.length} team${results.length === 1 ? ' matches' : 's match'}`}
       </div>
       <p className="sr-only" role="status" aria-live="polite">
         {announcement.text}
@@ -245,8 +331,44 @@ export function OpenTeams() {
         <div className="cards teams-cards">
           {Array.from({ length: 6 }, (_, i) => <div key={i} className="skeleton" style={{ height: 520 }} />)}
         </div>
+      ) : search.error ? (
+        <div className="empty search-state" aria-busy={search.busy || undefined}>
+          <h3>Search isn't working right now</h3>
+          <p className="muted small">{search.error}</p>
+          <div className="row">
+            <button type="button" className="btn btn-primary btn-sm" onClick={retrySearch}>Try again</button>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={clearSearch}>Clear search</button>
+          </div>
+        </div>
+      ) : searched && searched.rows.length === 0 ? (
+        <motion.div className="empty search-state" aria-busy={search.busy || undefined} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+          <div className="empty-ghost" aria-hidden="true">👻</div>
+          <h3>No teams match “{searched.q}”</h3>
+          <p className="muted small">Search looks at project names and full course codes, such as CIS4301 or CIS 4301.</p>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={clearSearch}>Clear search</button>
+        </motion.div>
+      ) : searched ? (
+        <LayoutGroup>
+          <motion.div layout className="cards teams-cards" aria-busy={search.busy || undefined}>
+            <AnimatePresence mode="popLayout">
+              {searched.rows.map(({ post: p, notes }, i) => (
+                <TeamCard
+                  key={p.id}
+                  post={p}
+                  viewer={viewer}
+                  myRoles={myRoles}
+                  index={i}
+                  notes={notes}
+                  requested={requested.includes(p.id)}
+                  onRequest={() => void handleRequest(p)}
+                  onCancel={() => void handleCancel(p)}
+                />
+              ))}
+            </AnimatePresence>
+          </motion.div>
+        </LayoutGroup>
       ) : results.length === 0 ? (
-        <motion.div className="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+        <motion.div className="empty search-state" aria-busy={search.busy || undefined} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
           <div className="empty-ghost" aria-hidden="true">👻</div>
           <h3>No teams fit all of these filters</h3>
           <p className="muted small">Try more roles, any goal, or less shared time.</p>
@@ -254,7 +376,7 @@ export function OpenTeams() {
         </motion.div>
       ) : (
         <LayoutGroup>
-          <motion.div layout className="cards teams-cards">
+          <motion.div layout className="cards teams-cards" aria-busy={search.busy || undefined}>
             <AnimatePresence mode="popLayout">
               {results.map((p, i) => (
                 <TeamCard
@@ -286,11 +408,13 @@ interface CardProps {
   requested: boolean
   onRequest: () => void
   onCancel: () => void
+  /** Search results only: e.g. "Outside your filters: Roles". */
+  notes?: string[]
   /** Passed by AnimatePresence popLayout (React 19 ref-as-prop). */
   ref?: Ref<HTMLElement>
 }
 
-function TeamCard({ post, viewer, myRoles, index, requested, onRequest, onCancel, ref }: CardProps) {
+function TeamCard({ post, viewer, myRoles, index, requested, onRequest, onCancel, notes = [], ref }: CardProps) {
   const titleId = useId()
   const requestRef = useRef<HTMLButtonElement>(null)
   const cancelRef = useRef<HTMLButtonElement>(null)
@@ -334,6 +458,17 @@ function TeamCard({ post, viewer, myRoles, index, requested, onRequest, onCancel
         </div>
         <span className="tcard-posted">{postedLabel(post.postedAt)}</span>
       </header>
+
+      {notes.length > 0 && (
+        <ul className="search-notes">
+          {notes.map((n) => (
+            <li key={n} className="search-note">
+              <span className="search-note-icon" aria-hidden="true">i</span>
+              {n}
+            </li>
+          ))}
+        </ul>
+      )}
 
       <div className="tcard-members">
         <span className="tcard-stack" aria-hidden="true">

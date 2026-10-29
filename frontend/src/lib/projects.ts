@@ -1,6 +1,7 @@
 // Project rules (D4) shared by the New project form and the mock server, so both give the same errors.
 import { GOAL_LABEL, PACE_LABEL, ROLE_LABEL } from '../labels'
-import { MAX_TEAM_SIZE, MIN_TEAM_SIZE, type NewProject, type Role, type Team } from '../types'
+import { MAX_TEAM_SIZE, MIN_TEAM_SIZE, type CourseCode, type NewProject, type Role, type Team } from '../types'
+import { compactCode, findCourse, looksLikeCourseCode } from './courses'
 
 export const COURSE_MAX = 60
 export const PROJECT_NAME_MIN = 2
@@ -15,11 +16,15 @@ export const isOwner = (t: Pick<Team, 'ownerId'>, studentId?: string) => Boolean
 /** Trims and collapses inner runs of spaces. */
 export const tidy = (s: string) => s.trim().replace(/\s+/g, ' ')
 
-/** Values as they will be saved: tidy text, known roles only, in role order. */
+/** A course as saved: a code goes compact and uppercase ("cen 3031" → "CEN3031"); other text (an older backend
+ *  without GET /api/courses) is only tidied. */
+export const cleanCourse = (course: string) => (looksLikeCourseCode(course) ? compactCode(course) : tidy(course))
+
+/** Values as they will be saved: tidy text, a course code compact, known roles only, in role order. */
 export function cleanNewProject(p: NewProject): NewProject {
   return {
     ...p,
-    course: tidy(p.course),
+    course: cleanCourse(p.course),
     project: tidy(p.project),
     requiredRoles: ROLES.filter((r) => p.requiredRoles.includes(r)),
   }
@@ -27,7 +32,7 @@ export function cleanNewProject(p: NewProject): NewProject {
 
 /** One of your projects with the same name and course, ignoring case and extra spaces. */
 export function findDuplicate(p: Pick<NewProject, 'course' | 'project'>, existing: readonly Team[]): Team | undefined {
-  const key = (course: string, name: string) => `${tidy(course).toLowerCase()}\n${tidy(name).toLowerCase()}`
+  const key = (course: string, name: string) => `${cleanCourse(course).toLowerCase()}\n${tidy(name).toLowerCase()}`
   const k = key(p.course, p.project)
   return existing.find((t) => key(t.course, t.project) === k)
 }
@@ -35,12 +40,18 @@ export function findDuplicate(p: Pick<NewProject, 'course' | 'project'>, existin
 export type NewProjectField = 'course' | 'project' | 'size' | 'requiredRoles' | 'goal' | 'pace'
 export type NewProjectErrors = Partial<Record<NewProjectField, string>>
 
-/** Field errors in form order. Empty object = valid. */
-export function checkNewProject(p: NewProject, existing: readonly Team[]): NewProjectErrors {
+/**
+ * Field errors in form order. Empty object = valid. `courses`: the list from GET /api/courses, so the course must be
+ * one of them (typed with any case or spaces). Without it (an older backend) the course is free text, 1-60 characters.
+ */
+export function checkNewProject(p: NewProject, existing: readonly Team[], courses?: readonly CourseCode[]): NewProjectErrors {
   const e: NewProjectErrors = {}
   const course = tidy(p.course)
   const name = tidy(p.project)
-  if (!course) e.course = 'Enter the course this project is for.'
+  if (courses) {
+    if (!course) e.course = 'Pick the course this project is for.'
+    else if (!findCourse(courses, course)) e.course = 'Pick a course from the list.'
+  } else if (!course) e.course = 'Enter the course this project is for.'
   else if (course.length > COURSE_MAX) e.course = `Use ${COURSE_MAX} characters or fewer.`
 
   if (name.length < PROJECT_NAME_MIN) {

@@ -1,9 +1,12 @@
 // New project (D4): /projects/new. Six fields; goal and pace start from the profile. Creating makes the
 // project current (you as owner and only member) and goes to Find teammates.
 // Field look and validation idiom from profile setup: errors after the first submit, then live while fixing.
+// Course (iteration 3): a picker of course codes from GET /api/courses; if that fails (an older backend), the old
+// free-text field, so creating a project still works.
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { isApiError, USING_MOCK } from '../api'
+import { CoursePicker } from '../components/CoursePicker'
 import { describedBy, FieldError, focusField, SelectField, TextField } from '../components/Field'
 import { SignedOutPage } from '../components/SignedOutPage'
 import { GOAL_HINT, GOAL_LABEL, PACE_LABEL, ROLE_LABEL } from '../labels'
@@ -75,7 +78,7 @@ function roleSummary(picked: Role[], viewer: Student | undefined, spots: number)
 }
 
 function NewProjectForm({ viewer, projects }: { viewer?: Student; projects: Team[] }) {
-  const { createProject, notify } = useAppData()
+  const { createProject, notify, courses, coursesFailed, loadCourses } = useAppData()
   const navigate = useNavigate()
   const location = useLocation()
   const [form, setForm] = useState<NewProjectInput>(() => ({
@@ -98,15 +101,21 @@ function NewProjectForm({ viewer, projects }: { viewer?: Student; projects: Team
     headingRef.current?.focus({ preventScroll: true })
   }, [])
 
+  // At most one GET /api/courses a session (AppData keeps the answer).
+  useEffect(() => loadCourses(), [loadCourses])
+  /** The picker's list, checked against on Create; undefined = free text (the list failed to load). While it loads
+   *  the picker shows "Loading the course list…" and Create asks for a course from the list. */
+  const courseList = coursesFailed ? undefined : (courses ?? [])
+
   const set = <K extends keyof NewProjectInput>(k: K, v: NewProjectInput[K]) => {
     setForm((f) => ({ ...f, [k]: v }))
     setServerErrors((e) => ({ ...e, [k]: undefined }))
   }
 
   const atLimit = projects.length >= MAX_PROJECTS
-  const errors: NewProjectErrors = { ...(tried ? checkNewProject(form, projects) : {}), ...stripEmpty(serverErrors) }
+  const errors: NewProjectErrors = { ...(tried ? checkNewProject(form, projects, courseList) : {}), ...stripEmpty(serverErrors) }
   const errorCount = Object.keys(errors).length
-  const courses = [...new Set(projects.map((p) => p.course))]
+  const yourCourses = [...new Set(projects.map((p) => p.course))]
   const spots = form.size - 1
   const summary = roleSummary(form.requiredRoles, viewer, spots)
 
@@ -117,7 +126,7 @@ function NewProjectForm({ viewer, projects }: { viewer?: Student; projects: Team
     e.preventDefault()
     if (creating || atLimit) return
     setTried(true)
-    const errs = checkNewProject(form, projects)
+    const errs = checkNewProject(form, projects, courseList)
     const first = (Object.keys(FIELD_ID) as NewProjectField[]).find((k) => errs[k])
     if (first) {
       focusField(FIELD_ID[first])
@@ -163,20 +172,28 @@ function NewProjectForm({ viewer, projects }: { viewer?: Student; projects: Team
       <form className="card np-card" noValidate onSubmit={submit} aria-labelledby="np-title">
         <section className="np-section" aria-labelledby="np-sec-project">
           <h2 id="np-sec-project" className="np-section-title">The project</h2>
-          <TextField
-            id="np-course"
-            label="Course"
-            required
-            list="np-courses"
-            maxLength={120}
-            value={form.course}
-            onChange={(v) => set('course', v)}
-            help="As it appears on your schedule, e.g. Software Engineering."
-            error={errors.course}
-          />
-          <datalist id="np-courses">
-            {courses.map((c) => <option key={c} value={c} />)}
-          </datalist>
+          {coursesFailed ? (
+            // Fallback for a server without GET /api/courses: free text, as before. No error banner: it still works.
+            <>
+              <TextField
+                id="np-course"
+                label="Course"
+                required
+                list="np-courses"
+                maxLength={120}
+                autoCapitalize="characters"
+                value={form.course}
+                onChange={(v) => set('course', v)}
+                help="Type the course code from your schedule, such as CEN3031."
+                error={errors.course}
+              />
+              <datalist id="np-courses">
+                {yourCourses.map((c) => <option key={c} value={c} />)}
+              </datalist>
+            </>
+          ) : (
+            <CoursePicker id="np-course" value={form.course} onChange={(v) => set('course', v)} courses={courses} error={errors.course} />
+          )}
 
           <TextField
             id="np-name"

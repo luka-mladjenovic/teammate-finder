@@ -23,6 +23,9 @@
 /* ---------- Layout ---------- */
 .setup-stage { overflow-x: clip; }
 .setup-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-lg); align-items: start; }
+/* Step 1 stacks its cards in two columns (Availability + Communication, Goals & effort + Roles & skills), so a short
+   card never leaves a hole beside a tall one. The gap inside a column is the grid's own, in every look. */
+.setup-col { display: flex; flex-direction: column; gap: inherit; min-width: 0; }
 .card.setup-card { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
 .setup-card-head h2 { font-size: 17px; font-weight: 600; }
 .setup-card-head p { margin: 2px 0 0; font-size: 13px; color: var(--color-muted); }
@@ -55,6 +58,15 @@
 .setup-input:focus, .setup-select:focus,
 .setup-input:focus-visible, .setup-select:focus-visible { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 1px var(--color-primary); }
 .setup-input[aria-invalid='true'] { border-color: var(--color-warn); }
+/* A select with an error (e.g. Major still on "Choose your major"); the looks restyle .setup-select borders, so they're named. */
+.setup-select[aria-invalid='true'],
+html.theme-aurora:not(.theme-retro) .setup-select[aria-invalid='true'],
+html.theme-glass:not(.theme-retro) .setup-select[aria-invalid='true'],
+html.theme-soft .setup-select[aria-invalid='true'] { border-color: var(--color-warn); }
+/* Username: an "@" inside the field, before what is typed. */
+.setup-affix { position: relative; display: block; }
+.setup-affix-at { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--color-muted); font-size: 15px; pointer-events: none; }
+.setup-input.setup-input-affixed { padding-left: 29px; }
 
 .select-wrap { position: relative; display: block; }
 .select-wrap::after {

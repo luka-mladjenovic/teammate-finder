@@ -6,6 +6,8 @@ import { USING_MOCK } from '../api'
 import { AvailabilityGrid } from '../components/AvailabilityGrid'
 import { Avatar } from '../components/Avatar'
 import { EmailTeamLink, TeamContactCard } from '../components/ContactCard'
+import { Handle } from '../components/Handle'
+import { ReviewButton } from '../components/ReviewDialog'
 import { SignedOutPage } from '../components/SignedOutPage'
 import { GOAL_LABEL, PACE_LABEL, ROLE_LABEL } from '../labels'
 import { blockGroupText, formatH, formatHours, groupByBlock, hoursOf } from '../lib/availability'
@@ -92,10 +94,17 @@ export function MyTeam() {
                   <Avatar student={m} size={40} />
                   <div className="stack slot-who" style={{ gap: 2 }}>
                     {m.id === viewer?.id ? <strong className="small">You</strong> : <Link to={`/people/${m.id}`} className="small"><strong>{m.name}</strong></Link>}
+                    <Handle student={m} />
                     <span className="slot-meta tiny muted">
                       {m.id === team.ownerId && <span className="chip chip-primary chip-owner">Owner</span>}
                       <span>{m.roles.map((r) => ROLE_LABEL[r]).join(' · ')}</span>
                     </span>
+                    {/* Anonymous honesty review: did their profile match how they worked? Not for yourself. */}
+                    {m.id !== viewer?.id && (
+                      <div className="slot-review">
+                        <ReviewButton student={m} label="Review profile" accessibleName={`Review profile of ${m.name}`} />
+                      </div>
+                    )}
                   </div>
                   {iOwn && m.id !== viewer?.id && (
                     <button
