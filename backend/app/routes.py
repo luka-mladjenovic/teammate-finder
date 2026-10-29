@@ -6,6 +6,8 @@ from datetime import datetime, timedelta, timezone
 from app import db
 from app.courses import VALID_COURSES
 from sqlalchemy.exc import IntegrityError
+from app.mailer import send_verification_email
+import os
 
 EMAIL_PATTERN = re.compile(r"^[a-z0-9._%+-]{1,64}@ufl\.edu$")
 
@@ -207,7 +209,7 @@ def request_email_code():
     if recent_hour_count >= 5:
         return jsonify({"error": "rate_limited", "message": "Too many requests. Try again later.", "retryAfter": 3600}), 429
 
-    # generate and store the code
+    # generate the code, try to send it before committing anything
     name = (data.get("name") or "").strip()
     code = f"{random.randint(0, 999999):06d}"
     challenge = Challenge(
@@ -218,6 +220,15 @@ def request_email_code():
         expires_at=now + timedelta(minutes=10),
         resend_after=now + timedelta(seconds=30),
     )
+
+    try:
+        send_verification_email(email, code)
+    except Exception:
+        return jsonify({
+            "error": "email_send_failed",
+            "message": "Couldn't send the verification email. Try again.",
+        }), 502
+
     db.session.add(challenge)
     db.session.commit()
 
@@ -228,9 +239,8 @@ def request_email_code():
         "resendAfter": challenge.resend_after.isoformat() + "Z",
     }
 
-    # DEMO ONLY: show the code since we have no real email sending yet.
-    # This must never run once real email is wired up.
-    response["demoCode"] = code
+    if os.environ.get("DEMO_MODE") == "true":
+        response["demoCode"] = code
 
     return jsonify(response), 200
 
@@ -270,6 +280,7 @@ def verify_email_code():
 
     db.session.commit()
 
+    session.permanent = True
     session["student_id"] = student.id
 
     return jsonify({
