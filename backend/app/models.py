@@ -2,7 +2,7 @@ from app import db
 import uuid
 import secrets
 import hashlib
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 def hash_code(code: str) -> str:
     return hashlib.sha256(code.encode()).hexdigest()
@@ -134,3 +134,32 @@ class Membership(db.Model):
     joined_at = db.Column(db.String, nullable=False)  # ISO string, so we can order by it
 
     __table_args__ = (db.UniqueConstraint("team_id", "student_id"),)
+
+class Review(db.Model):
+    id = db.Column(db.String, primary_key=True, default=gen_id)
+    reviewer_id = db.Column(db.String, db.ForeignKey("student.id"), nullable=False)
+    reviewee_id = db.Column(db.String, db.ForeignKey("student.id"), nullable=False)
+    role_accurate = db.Column(db.Boolean, nullable=False)
+    skills_accurate = db.Column(db.Boolean, nullable=False)
+    pace_accurate = db.Column(db.Boolean, nullable=False)
+    goal_accurate = db.Column(db.Boolean, nullable=False)
+    note = db.Column(db.String, nullable=True)
+    created_at = db.Column(
+        db.DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
+    )
+
+    __table_args__ = (
+        db.UniqueConstraint("reviewer_id", "reviewee_id", name="one_review_per_pair"),
+    )
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "revieweeId": self.reviewee_id,
+            "roleAccurate": self.role_accurate,
+            "skillsAccurate": self.skills_accurate,
+            "paceAccurate": self.pace_accurate,
+            "goalAccurate": self.goal_accurate,
+            "note": self.note,
+            "createdAt": self.created_at.isoformat() + "Z",
+        }
