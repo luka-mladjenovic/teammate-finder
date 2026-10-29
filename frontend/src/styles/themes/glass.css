@@ -42,6 +42,8 @@ html.theme-glass:not(.theme-retro) {
   --color-good-soft: #e2f4ec;
   --color-warn: #9c4a08;
   --color-warn-soft: #fdf0e1;
+  --color-danger: #b42318;
+  --color-danger-soft: #fdeceb;
 
   --radius-sm: 12px;
   --radius-md: 20px;

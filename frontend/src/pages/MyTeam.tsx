@@ -1,6 +1,6 @@
 import '../styles/setup.css'
 import { AnimatePresence, motion } from 'motion/react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { USING_MOCK } from '../api'
 import { AvailabilityGrid } from '../components/AvailabilityGrid'
@@ -11,19 +11,33 @@ import { ReviewButton } from '../components/ReviewDialog'
 import { SignedOutPage } from '../components/SignedOutPage'
 import { GOAL_LABEL, PACE_LABEL, ROLE_LABEL } from '../labels'
 import { blockGroupText, formatH, formatHours, groupByBlock, hoursOf } from '../lib/availability'
-import { firstName } from '../lib/contact'
+import { firstName, joinWords } from '../lib/contact'
 import { commonSlots, MIN_SHARED_HOURS, roleCoverage } from '../lib/matching'
 import { isFull, isOwner, spotsLeft } from '../lib/projects'
 import { useArrivalFocus } from '../lib/useArrivalFocus'
 import { useAppData } from '../state/AppData'
-import type { Student, Team } from '../types'
+import type { Student } from '../types'
+
+/** Leaving (a member) or deleting (the owner) the current project. */
+type ProjectExit = 'leave' | 'delete'
 
 export function MyTeam() {
-  const { loading, session, viewer, team, members, byId, removeMember, notify } = useAppData()
+  const { loading, session, viewer, team, members, byId, removeMember, leaveProject, deleteProject, notify } = useAppData()
   const membersHeading = useRef<HTMLHeadingElement>(null)
   const headingRef = useArrivalFocus(!loading)
   // The member whose × was pressed: removing someone is confirmed first (it can't be undone without a new invite).
   const [confirming, setConfirming] = useState<Student | null>(null)
+  // Leave or Delete, confirmed first. Nothing changes until the server answers; meanwhile that project's button says
+  // "Leaving…" and keeps focus (aria-disabled, not disabled).
+  const [asking, setAsking] = useState<ProjectExit | null>(null)
+  const [busy, setBusy] = useState<{ id: string; exit: ProjectExit } | null>(null)
+  // Counts projects left or deleted here. The button that had focus is gone with its project, so once the page shows
+  // the next project (or "You're not on a team yet") its title takes focus.
+  const [exits, setExits] = useState(0)
+  useEffect(() => {
+    // Scrolls the title into view too: the button was at the bottom of the page.
+    if (exits > 0) headingRef.current?.focus()
+  }, [exits, headingRef])
   if (loading) return <div className="page"><div className="skeleton" style={{ height: 420 }} /></div>
 
   // Real API, signed out: sign-out dropped your projects from memory, so this is not "no team yet".
@@ -62,6 +76,21 @@ export function MyTeam() {
     // The × button disappears with the member, so put focus somewhere stable first.
     membersHeading.current?.focus()
     if (await removeMember(m.id)) notify(`Removed ${firstName(m.name)} from ${team.project}. Their UF email is hidden again.`)
+  }
+
+  const ownerName = byId(team.ownerId)?.name
+  const inviteBack = ownerName ? `${firstName(ownerName)}, the owner, can invite you` : 'The owner can invite you'
+  const otherNames = joinWords(others.map((m) => firstName(m.name)))
+  const exitBusy = busy?.id === team.id ? busy.exit : null
+
+  // AppData announces the outcome (and why, when the server can't do it yet).
+  const exitProject = async (exit: ProjectExit) => {
+    const id = team.id
+    setAsking(null)
+    setBusy({ id, exit })
+    const gone = exit === 'leave' ? await leaveProject(id) : await deleteProject(id)
+    setBusy((b) => (b?.id === id ? null : b))
+    if (gone) setExits((n) => n + 1)
   }
 
   return (
@@ -184,22 +213,95 @@ export function MyTeam() {
         </section>
       </div>
 
-      <RemoveDialog member={confirming} team={team} onCancel={() => setConfirming(null)} onConfirm={(m) => void remove(m)} />
+      {/* Away from Find teammates at the top: the owner can delete the project, anyone else can leave it. */}
+      <section className="team-exit" aria-labelledby="team-exit-title">
+        <div className="team-exit-text">
+          <h2 id="team-exit-title">{iOwn ? 'Delete this project' : 'Leave this project'}</h2>
+          <p id="team-exit-desc" className="small muted">
+            {iOwn
+              ? `Removes ${team.project} for everyone on it and cancels its pending invites and join requests. This can't be undone.`
+              : `You'll stop seeing your teammates' UF emails through ${team.project}. ${inviteBack} back.`}
+          </p>
+        </div>
+        <button
+          type="button"
+          className={`btn btn-secondary btn-sm team-exit-btn${iOwn ? ' is-danger' : ''}`}
+          aria-haspopup="dialog"
+          aria-describedby="team-exit-desc"
+          aria-disabled={exitBusy ? true : undefined}
+          onClick={() => {
+            if (!exitBusy) setAsking(iOwn ? 'delete' : 'leave')
+          }}
+        >
+          {exitBusy === 'delete' ? 'Deleting…' : exitBusy === 'leave' ? 'Leaving…' : iOwn ? 'Delete project' : 'Leave project'}
+        </button>
+      </section>
+
+      <ConfirmDialog
+        open={confirming !== null}
+        title={confirming ? `Remove ${confirming.name} from ${team.project}?` : ''}
+        confirmLabel={confirming ? `Remove ${firstName(confirming.name)}` : ''}
+        onCancel={() => setConfirming(null)}
+        onConfirm={() => {
+          if (confirming) void remove(confirming)
+        }}
+      >
+        {confirming && (
+          <p>
+            {firstName(confirming.name)} will need a new invite to rejoin, and you won't see their UF email unless you share another project.
+          </p>
+        )}
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={asking !== null}
+        title={`${asking === 'delete' ? 'Delete' : 'Leave'} ${team.project}?`}
+        confirmLabel={`${asking === 'delete' ? 'Delete' : 'Leave'} ${team.project}`}
+        danger={asking === 'delete'}
+        onCancel={() => setAsking(null)}
+        onConfirm={() => {
+          if (asking) void exitProject(asking)
+        }}
+      >
+        {asking === 'delete' ? (
+          <>
+            <p>This can't be undone.</p>
+            <ul className="team-confirm-list">
+              <li>{others.length > 0 ? `It's removed for you and ${otherNames}.` : "It's removed from your projects."}</li>
+              <li>Its pending invites and requests to join are canceled.</li>
+              {others.length > 0 && <li>Members can no longer see each other's UF emails through it.</li>}
+            </ul>
+          </>
+        ) : (
+          <p>
+            You'll leave {team.project} and stop seeing your teammates' UF emails through it. {inviteBack} again later.
+          </p>
+        )}
+      </ConfirmDialog>
     </div>
   )
 }
 
-interface RemoveDialogProps {
-  member: Student | null
-  team: Team
+interface ConfirmDialogProps {
+  open: boolean
+  title: string
+  /** What happens, in plain words. Read out with the title. */
+  children: ReactNode
+  /** Names the action and what it acts on, e.g. "Remove Priya", "Delete Database Project". */
+  confirmLabel: string
+  /** Styles the confirm button as destructive (Delete project). */
+  danger?: boolean
   onCancel: () => void
-  onConfirm: (m: Student) => void
+  onConfirm: () => void
 }
 
-/** "Remove Priya from Database Project?" Native modal dialog: Esc and the backdrop cancel; Cancel has focus first. */
-function RemoveDialog({ member, team, onCancel, onConfirm }: RemoveDialogProps) {
+/**
+ * "Remove Priya from Database Project?", "Leave Club Budget Tracker?", "Delete Database Project?" Native modal dialog:
+ * Cancel has focus first; Esc and the backdrop cancel, and closing returns focus to the button that opened it.
+ */
+function ConfirmDialog({ open, title, children, confirmLabel, danger = false, onCancel, onConfirm }: ConfirmDialogProps) {
   const ref = useRef<HTMLDialogElement>(null)
-  const open = member !== null
+  const id = useId()
 
   useEffect(() => {
     const d = ref.current
@@ -212,35 +314,34 @@ function RemoveDialog({ member, team, onCancel, onConfirm }: RemoveDialogProps) 
     <dialog
       ref={ref}
       className="setup-dialog team-confirm"
-      aria-labelledby="remove-title"
-      aria-describedby="remove-desc"
+      aria-labelledby={`${id}-title`}
+      aria-describedby={`${id}-desc`}
       onClose={onCancel}
       onClick={(e) => {
         if (e.target === e.currentTarget) onCancel() // backdrop click
       }}
     >
-      {member && (
+      {open && (
         <div className="setup-dialog-body">
-          <h2 id="remove-title">
-            Remove {member.name} from {team.project}?
-          </h2>
-          <p id="remove-desc" className="small">
-            {firstName(member.name)} will need a new invite to rejoin, and you won't see their UF email unless you share another project.
-          </p>
+          <h2 id={`${id}-title`}>{title}</h2>
+          <div id={`${id}-desc`} className="team-confirm-desc small">
+            {children}
+          </div>
           <div className="team-confirm-actions">
             <button type="button" className="btn btn-secondary" onClick={onCancel} autoFocus>
               Cancel
             </button>
             <button
               type="button"
-              className="btn btn-primary"
+              className={danger ? 'btn btn-danger' : 'btn btn-primary'}
               onClick={() => {
-                // Close first: focus can only move to the Members heading once the page is no longer inert.
+                // Close first: focus can only move on (to the Members heading, the button that opened it, or the next
+                // project's title) once the page is no longer inert.
                 ref.current?.close()
-                onConfirm(member)
+                onConfirm()
               }}
             >
-              Remove {firstName(member.name)}
+              {confirmLabel}
             </button>
           </div>
         </div>

@@ -96,6 +96,21 @@ interface AppData {
   switchProject: (id: string) => void
   /** Creates a project (you as owner and only member) and makes it current. Rejects with ApiError. */
   createProject: (p: NewProject) => Promise<Team>
+  /**
+   * Leaves one of your projects that you don't own (DELETE /api/projects/:id/members/<your id>). Nothing changes until
+   * the server answers. Then the project leaves `projects`; if it was current, the next one becomes current (or none);
+   * its compare list and pending invites are dropped; its teammates' emails lock again unless you share another
+   * project. Announces every outcome itself, success included ("You left Club Budget Tracker."). Today's backend
+   * answers 403 not_owner: "Leaving a project isn't available on the server yet." and nothing changes.
+   * Resolves true once the project is gone from `projects` (the caller moves focus).
+   */
+  leaveProject: (projectId: string) => Promise<boolean>
+  /**
+   * Owner only: DELETE /api/projects/:id, for every member. Same follow-up as leaveProject, plus its join requests leave
+   * the inbox and it leaves Open teams ("Deleted Database Project."). Without the route on the server: "Deleting a
+   * project isn't available on the server yet." and nothing changes.
+   */
+  deleteProject: (projectId: string) => Promise<boolean>
 
   // ----- Course codes (GET /api/courses), for New project. -----
   /** The server's course codes, once loaded. */
@@ -199,11 +214,12 @@ const newestFirst = <T extends { createdAt: string }>(a: T, b: T) => b.createdAt
 export const REVIEWS_UNAVAILABLE = 'reviews_unavailable'
 
 /**
- * Whether a failed POST /api/students/:id/reviews means the route doesn't exist yet (today's Flask backend): 405, or a
- * 404 without a JSON error code (Flask's own HTML page), or no answer at all while GET /api/me still answers, since a
- * missing route also fails the CORS preflight. A real `404 not_found` (no such student) is not that.
+ * Whether a failed request means its route doesn't exist yet on the server (today's Flask backend has no reviews route
+ * and no DELETE /api/projects/:id): 405, or a 404 without a JSON error code (Flask's own HTML page), or no answer at all
+ * while GET /api/me still answers, since a missing route also fails the CORS preflight. A real `404 not_found` (no
+ * such student or project) is not that.
  */
-async function reviewsEndpointMissing(e: unknown): Promise<boolean> {
+async function routeMissing(e: unknown): Promise<boolean> {
   if (!isApiError(e)) return false
   if (e.status === 405) return true
   if (e.status === 404) return e.code === 'http_404'
@@ -483,6 +499,104 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     return created
   }, [])
 
+  /** The project that becomes current when `id` goes away: the one after it in join order, else the one before. */
+  const projectAfter = useCallback(
+    (id: string) => {
+      const i = projects.findIndex((p) => p.id === id)
+      const rest = projects.filter((p) => p.id !== id)
+      return (rest[i] ?? rest[i - 1])?.id
+    },
+    [projects],
+  )
+
+  /**
+   * A project you left or deleted, or that the server says you're no longer on. Out of your projects, Open teams and
+   * the inbox, with its compare list and pending invites; `next` becomes current if it was. Emails lock again through
+   * canSeeEmail (it reads `projects`); cached ones are dropped so a shared other project is checked afresh.
+   */
+  const dropProject = useCallback((t: Team, next: string | undefined) => {
+    setProjects((ps) => ps.filter((p) => p.id !== t.id))
+    setCurrentId((id) => (id === t.id ? next : id))
+    setCompareBy((c) => {
+      if (!(t.id in c)) return c
+      const rest = { ...c }
+      delete rest[t.id]
+      return rest
+    })
+    setInvites((list) => list.filter((i) => i.projectId !== t.id))
+    setInboxRequests((list) => list.filter((r) => r.postId !== t.id))
+    setPosts((ps) => ps.filter((p) => p.id !== t.id))
+    for (const id of t.memberIds) contactCache.current.delete(id)
+  }, [])
+
+  const leaveProject = useCallback(
+    async (projectId: string) => {
+      const t = projects.find((p) => p.id === projectId)
+      if (!t || !viewer) return false
+      if (t.ownerId === viewer.id) {
+        notify("Owners can't leave their own project.")
+        return false
+      }
+      const next = projectAfter(t.id)
+      try {
+        await api.leaveProject(t.id, viewer.id)
+      } catch (e) {
+        if (sessionEnded(e)) return false
+        if (isApiError(e)) {
+          // Today's backend: only the owner may call this route, even for yourself.
+          if (e.code === 'not_owner') {
+            notify("Leaving a project isn't available on the server yet.")
+            return false
+          }
+          if (e.code === 'cannot_remove_owner') {
+            notify("Owners can't leave their own project.")
+            return false
+          }
+          // Removed by the owner, or deleted, since the page loaded: it's gone either way.
+          if (e.code === 'not_found') {
+            dropProject(t, next)
+            notify(`You're no longer on ${t.project}.`)
+            return true
+          }
+        }
+        notify(`Couldn't leave ${t.project}. ${errorText(e)}`)
+        return false
+      }
+      dropProject(t, next)
+      notify(`You left ${t.project}.`)
+      return true
+    },
+    [projects, viewer, projectAfter, dropProject, notify],
+  )
+
+  const deleteProject = useCallback(
+    async (projectId: string) => {
+      const t = projects.find((p) => p.id === projectId)
+      if (!t || !viewer || t.ownerId !== viewer.id) return false
+      const next = projectAfter(t.id)
+      try {
+        await api.deleteProject(t.id)
+      } catch (e) {
+        if (sessionEnded(e)) return false
+        if (await routeMissing(e)) {
+          notify("Deleting a project isn't available on the server yet.")
+          return false
+        }
+        if (isApiError(e) && e.code === 'not_found') {
+          dropProject(t, next)
+          notify(`${t.project} was already deleted.`)
+          return true
+        }
+        notify(isApiError(e) && e.code === 'not_owner' ? `Only the owner can delete ${t.project}.` : `Couldn't delete ${t.project}. ${errorText(e)}`)
+        return false
+      }
+      dropProject(t, next)
+      notify(`Deleted ${t.project}.`)
+      return true
+    },
+    [projects, viewer, projectAfter, dropProject, notify],
+  )
+
   const loadCourses = useCallback(() => {
     if (coursesAsked.current) return
     coursesAsked.current = true
@@ -517,7 +631,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         return review
       } catch (e) {
         if (isApiError(e) && e.code === 'already_reviewed') markReviewed(studentId)
-        if (await reviewsEndpointMissing(e)) {
+        if (await routeMissing(e)) {
           setReviewsUnavailable(true)
           throw new ApiError(isApiError(e) ? e.status : 0, { error: REVIEWS_UNAVAILABLE, message: "Reviews aren't available yet." })
         }
@@ -871,6 +985,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     matchCtx,
     switchProject,
     createProject,
+    leaveProject,
+    deleteProject,
     courses,
     coursesFailed,
     loadCourses,

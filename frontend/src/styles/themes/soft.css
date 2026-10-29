@@ -55,6 +55,8 @@ html.theme-soft {
   --color-good-soft: #dbf5e8;
   --color-warn: #a8470c;
   --color-warn-soft: #ffe9d6;
+  --color-danger: #b3261e;
+  --color-danger-soft: #ffe8e5;
 
   --radius-sm: 12px;
   --radius-md: 18px;

@@ -5,6 +5,7 @@ import random
 from datetime import datetime, timedelta, timezone
 from app import db
 from app.courses import VALID_COURSES
+from sqlalchemy.exc import IntegrityError
 
 EMAIL_PATTERN = re.compile(r"^[a-z0-9._%+-]{1,64}@ufl\.edu$")
 
@@ -442,7 +443,16 @@ def update_me():
     if errors:
         return jsonify({"error": "validation", "fields": errors}), 400
 
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({
+            "error": "username_taken",
+            "message": "That username is taken.",
+            "fields": {"username": "That username is taken."},
+        }), 409
+
     return jsonify(me.to_dict(include_email=True)), 200
 
 @main.route("/api/projects", methods=["POST"])
@@ -901,3 +911,15 @@ def get_reviews(student_id):
 
     reviews = Review.query.filter_by(reviewee_id=student_id).order_by(Review.created_at.desc()).all()
     return jsonify([r.to_dict() for r in reviews])
+
+@main.route("/api/students/<student_id>", methods=["GET"])
+def get_student(student_id):
+    me = current_student()
+    if not me:
+        return jsonify({"error": "not_signed_in"}), 401
+
+    student = Student.query.get(student_id)
+    if not student:
+        return jsonify({"error": "not_found"}), 404
+
+    return jsonify(student.to_dict(include_email=(student.id == me.id)))

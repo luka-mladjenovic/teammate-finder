@@ -22,6 +22,9 @@
   --color-good-soft: #e7f6f0;
   --color-warn: #b45309;
   --color-warn-soft: #fff4e5;
+  /* Destructive actions only (Delete project): text on light surfaces, never a fill. */
+  --color-danger: #b42318;
+  --color-danger-soft: #fef3f2;
 
   --font-sans: 'Plus Jakarta Sans Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
