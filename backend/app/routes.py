@@ -4,6 +4,7 @@ import re
 import random
 from datetime import datetime, timedelta, timezone
 from app import db
+from app.courses import VALID_COURSES
 
 EMAIL_PATTERN = re.compile(r"^[a-z0-9._%+-]{1,64}@ufl\.edu$")
 
@@ -141,6 +142,13 @@ def get_team_posts():
     my_team_ids = {t.id for t in Team.query.join(Membership).filter(Membership.student_id == me.id).all()}
     all_teams = Team.query.filter(~Team.id.in_(my_team_ids)).all() if my_team_ids else Team.query.all()
 
+    search = (request.args.get("q") or "").strip().lower()
+    if search:
+        all_teams = [
+            t for t in all_teams
+            if search in t.project.lower() or search in t.course.lower()
+        ]
+
     posts = []
     for t in all_teams:
         if len(t.member_ids) >= t.size:
@@ -273,12 +281,12 @@ def update_me():
         else:
             me.name = name
 
-        if "major" in data:
-            major = data["major"]
-            if major not in VALID_MAJORS:
-                errors["major"] = f"Major must be one of: {', '.join(sorted(VALID_MAJORS))}."
-            else:
-                me.major = major
+    if "major" in data:
+        major = data["major"]
+        if major not in VALID_MAJORS:
+            errors["major"] = f"Major must be one of: {', '.join(sorted(VALID_MAJORS))}."
+        else:
+            me.major = major
 
     if "year" in data:
         year = data["year"]
@@ -395,9 +403,6 @@ def update_me():
         else:
             me.looking_for_team = val
 
-    if errors:
-        return jsonify({"error": "validation", "fields": errors}), 400
-
     if "username" in data:
         username = (data["username"] or "").strip().lower()
         if not USERNAME_PATTERN.match(username):
@@ -411,6 +416,9 @@ def update_me():
                     "fields": {"username": "That username is taken."},
                 }), 409
             me.username = username
+            
+    if errors:
+        return jsonify({"error": "validation", "fields": errors}), 400
     
     db.session.commit()
     return jsonify(me.to_dict(include_email=True)), 200
@@ -431,8 +439,9 @@ def create_project():
     goal = data.get("goal")
     pace = data.get("pace")
 
-    if not (1 <= len(course) <= 60):
-        errors["course"] = "Course must be 1-60 characters."
+    course = course.upper()  # normalize before checking/storing
+    if course not in VALID_COURSES:
+        errors["course"] = "Must be a recognized course code."
     if not (2 <= len(project) <= 60):
         errors["project"] = "Project name must be 2-60 characters."
     if not isinstance(size, int) or not (MIN_TEAM_SIZE <= size <= MAX_TEAM_SIZE):
@@ -798,3 +807,10 @@ def update_availability():
         "availability": cleaned,
         "hoursPerWeek": hours_per_week(cleaned),
     }), 200
+
+@main.route("/api/courses", methods=["GET"])
+def get_courses():
+    me = current_student()
+    if not me:
+        return jsonify({"error": "not_signed_in"}), 401
+    return jsonify(sorted(VALID_COURSES))
