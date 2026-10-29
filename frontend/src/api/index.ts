@@ -362,8 +362,7 @@ function mockCancelInvite(projectId: string, inviteId: string) {
 
 function mockRemoveMember(projectId: string, studentId: string) {
   const p = myProject(projectId)
-  // Leaving: a member who isn't the owner may remove themselves (the change asked of the server in
-  // docs/backend-handoff.md section 10). Today's Flask backend still answers 403 not_owner here.
+  // Leaving: a member who isn't the owner may remove themselves, as the server's remove_member allows.
   if (studentId === db.me.id && p.ownerId !== db.me.id) {
     p.memberIds = p.memberIds.filter((id) => id !== studentId)
     // No longer one of your projects (duplicate-name and 10-project checks read db.projects).
@@ -379,7 +378,7 @@ function mockRemoveMember(projectId: string, studentId: string) {
 
 /**
  * DELETE /api/projects/:id: owner only. Gone for every member at once; its pending invites and join requests are
- * canceled. The real server is asked to soft-delete (reviews keep their teamId); the mock just drops it.
+ * canceled. The real server hard-deletes the project and removes its invites and join requests outright.
  */
 function mockDeleteProject(projectId: string) {
   const p = myProject(projectId)
@@ -628,12 +627,12 @@ export const api = {
     del(`/api/projects/${seg(projectId)}/members/${seg(studentId)}`, () => mockRemoveMember(projectId, studentId)),
   /**
    * Leave a project you don't own: the same DELETE /api/projects/:id/members/:studentId with your own id → 204.
-   * 400 cannot_remove_owner (the owner can't leave), 404. Today's backend answers 403 not_owner (not built yet).
+   * 400 cannot_remove_owner (the owner can't leave), 404. A backend without leave support answers 403 not_owner.
    */
   leaveProject: (projectId: string, myId: string) =>
     del(`/api/projects/${seg(projectId)}/members/${seg(myId)}`, () => mockRemoveMember(projectId, myId)),
-  /** DELETE /api/projects/:id → 204, for every member. Owner only: 403 not_owner, 404 not_found. Today's backend
-   *  has no such route (404 without a JSON error, 405, or a failed preflight). */
+  /** DELETE /api/projects/:id → 204, for every member. Owner only: 403 not_owner, 404 not_found. A backend without
+   *  the route answers 404 without a JSON error, 405, or fails the preflight. */
   deleteProject: (projectId: string) => del(`/api/projects/${seg(projectId)}`, () => mockDeleteProject(projectId)),
 
   // Open teams and join requests

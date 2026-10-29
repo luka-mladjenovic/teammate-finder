@@ -23,9 +23,7 @@ filtered again on the client.
 
 **Leaving and deleting a project (10/29, agreed in the team chat):** a member who doesn't own a project can leave it
 (the same `DELETE /api/projects/:id/members/:studentId`, with their own id) and the owner can delete it
-(`DELETE /api/projects/:id`, new). Today's backend has neither: the frontend then says "Leaving a project isn't available
-on the server yet." / "Deleting a project isn't available on the server yet." and changes nothing. The exact backend
-changes are in [`backend-handoff.md` section 10](backend-handoff.md#10-frontend-notes-for-luka), notes 15 and 16.
+(`DELETE /api/projects/:id`). Both behaviors are implemented by the Flask backend and mirrored by the frontend mock.
 
 ## Conventions
 
@@ -427,16 +425,13 @@ you aren't the owner → `403 not_owner` · `:studentId` is the owner (also the 
 (an owner deletes the project instead) · not a member → `404`.
 
 Removing or leaving ends email access between that student and the rest of the team unless another project is shared
-(rule 2). A member who leaves (or is removed) still counts as a **past teammate** for reviews ([contract
-§3](iteration-3/contract-additions.md#3-reviews): "any `Membership` row … past or present"), so the review check must
-still find that membership after it ends (backend-handoff.md section 10, note 15).
+(rule 2). The current review implementation checks live membership overlap, so leaving or deleting a project removes
+that project from review eligibility.
 
-Frontend: today's backend answers a self-removal with `403 not_owner`; the frontend reads that as "not built yet",
-says "Leaving a project isn't available on the server yet." and changes nothing. `400 cannot_remove_owner` → "Owners
-can't leave their own project." `404 not_found` → you're not on it any more: it leaves your projects ("You're no longer
-on {project}."). On `204` it leaves your projects (the next one becomes current, or the no-project state), its
-teammates' emails lock again unless you share another project, its compare list and pending invites are dropped, and a
-toast says "You left {project}."
+Frontend: on `204` the project leaves your projects (the next one becomes current, or the no-project state), its
+compare list and pending invites are dropped, and a toast says "You left {project}." `400 cannot_remove_owner` →
+"Owners can't leave their own project." `404 not_found` → you're not on it any more: it leaves your projects ("You're
+no longer on {project}.").
 
 #### `DELETE /api/projects/:id` · `api.deleteProject` (10/29)
 
@@ -445,24 +440,16 @@ No body → `204`. Owner only (the button shows only to the owner). Errors: `403
 
 In one transaction:
 
-- The project is gone **for every member**: it leaves `GET /api/projects`, never appears in `GET /api/team-posts`,
+- The project is hard-deleted for every member: it leaves `GET /api/projects`, never appears in `GET /api/team-posts`,
   and every `/api/projects/:id…` call answers `404`.
-- Its **pending invites** become `canceled` (they leave the invitees' `GET /api/invites/mine`) and its **pending join
-  requests** become `canceled` (they leave the owner's `GET /api/projects/:id/requests`, and the requester's
-  `GET /api/requests/mine` shows them as `canceled`).
+- Its related invites and join requests are deleted before the project row, so no records point at the deleted project.
 - Contact unlock through it ends (rule 2): members who share no other project get `403 contact_locked`.
 
-Suggested: **soft delete.** Mark the team deleted (e.g. a `deleted_at` column) and hide it from every list and lookup
-instead of deleting rows. Existing reviews keep a `teamId` that still exists, and past-teammate review eligibility
-(contract §3) stays valid for everyone who was on it. Details: backend-handoff.md section 10, note 16.
-
 Frontend: "Delete project" sits at the bottom of My team, away from Find teammates, and asks first ("Delete {project}?",
-with the consequences; Cancel has focus). On `204` the project leaves your projects, Open teams and the inbox (its join
-requests), the next project becomes current (or the no-project state), emails lock again unless another project is
-shared, its compare list and pending invites are dropped, and a toast says "Deleted {project}." `404 not_found` is
-treated as already deleted. Today's backend has no such route: a `405`, a `404` without a JSON `error`, or a failed
-CORS preflight while `GET /api/me` still answers → "Deleting a project isn't available on the server yet." and nothing
-changes. `403 not_owner` → "Only the owner can delete {project}."
+with the consequences; Cancel has focus). On `204` the project leaves the user's projects, Open teams and inbox, the
+next project becomes current (or the no-project state), emails lock again unless another project is shared, its compare
+list and pending invites are dropped, and a toast says "Deleted {project}." `404 not_found` is treated as already
+deleted. `403 not_owner` → "Only the owner can delete {project}."
 
 ### Open teams and join requests
 
@@ -561,5 +548,5 @@ Later: study-mode logging `POST /api/study/events`. (Reviews are `POST /api/stud
 | Search | all mock students (or `TEAM_POSTS`) through `lib/search.ts`, the contract's rules, with the usual delay | your `?q=` endpoints; the client filters the answer again with the same rules |
 | Courses | `MOCK_COURSES` (16 UF codes); unknown code → `400 fields.course` | `GET /api/courses`; if it fails, New project falls back to free text |
 | Reviews | Priya 2, Marcus 1, Aisha 1, Daniel 1 (pace: no), Noah 1 written by the viewer for Club Budget Tracker (reviewing him again → `409`); team = first shared project | `POST /api/students/:id/reviews`; without the route the dialog says "Reviews aren't available yet" |
-| Leave / delete | leaving removes you from `memberIds`; deleting removes the project and cancels its pending invites and join requests (Database Project can be deleted in a session; a reload restores it) | today: `403 not_owner` for leaving and no delete route, so the UI says each isn't available yet; once built, the same results |
+| Leave / delete | leaving removes you from `memberIds`; deleting removes the project and cancels its pending invites and join requests (Database Project can be deleted in a session; a reload restores it) | same results; deleting removes the project's invites and join requests outright instead of canceling them |
 | State | in memory; a reload resets everything | persistent |
