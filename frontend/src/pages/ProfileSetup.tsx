@@ -86,6 +86,7 @@ const PACE_OPTIONS = optionsOf(PACES, (p) => PACE_LABEL[p])
 const RESPONSE_OPTIONS = optionsOf(RESPONSES, (r) => RESPONSE_LABEL[r])
 const CHANNEL_OPTIONS = optionsOf(CHANNELS, (c) => CHANNEL_LABEL[c])
 const MAJOR_OPTIONS = optionsOf(['Computer Science', 'Computer Engineering', 'Computer Science Minor', 'Computer Engineering Minor'] as const, (major) => major)
+const PAST_WORK_ROLES_OPTIONS = optionsOf(ROLES, (r) => ROLE_LABEL[r])
 
 /** "The basics" fields whose server message (400 `fields.<key>`, 409 `username_taken`) shows under the field, in DOM
  *  order. `word` names it in the bar ("Fix the major above…"). */
@@ -918,11 +919,11 @@ function SetupForm({ viewer, signedIn, matchCtx, loadFailed, usernames, onSave }
                     value={w.url}
                     onChange={(v) => updateRow(w.id, { url: v })}
                   />
-                  <TextField
+                  <SelectField
                     id={`pw-role-${w.id}`}
                     label="Your role"
-                    placeholder="What you did"
-                    value={w.role}
+                    value={w.role as Role | ''}
+                    options={PAST_WORK_ROLES_OPTIONS}
                     onChange={(v) => updateRow(w.id, { role: v })}
                   />
                 </motion.li>

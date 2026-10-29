@@ -4,6 +4,7 @@ import re
 import random
 from datetime import datetime, timedelta, timezone
 from app import db
+from app.courses import VALID_COURSES
 
 EMAIL_PATTERN = re.compile(r"^[a-z0-9._%+-]{1,64}@ufl\.edu$")
 
@@ -23,6 +24,7 @@ VALID_ROLES = {"lead", "frontend", "backend", "design", "docs", "testing"}
 VALID_WORK_MODES = {"online", "in_person"}
 
 SLOT_KEY_PATTERN = re.compile(r"^(mon|tue|wed|thu|fri|sat|sun)-(morning|afternoon|early_evening|late_evening|night)$")
+USERNAME_PATTERN = re.compile(r"^[a-z0-9_]{3,20}$")
 
 DAY_ORDER = {"mon": 0, "tue": 1, "wed": 2, "thu": 3, "fri": 4, "sat": 5, "sun": 6}
 BLOCK_ORDER = {"morning": 0, "afternoon": 1, "early_evening": 2, "late_evening": 3, "night": 4}
@@ -116,7 +118,9 @@ def get_students():
 
     search = (request.args.get("q") or "").strip()
     if search:
-        query = query.filter(Student.name.ilike(f"%{search}%"))
+        query = query.filter(
+            Student.name.ilike(f"%{search}%") | Student.username.ilike(f"%{search}%")
+        )
 
     students = query.all()
     return jsonify([s.to_dict(include_email=False) for s in students if s.id != me.id])
@@ -137,6 +141,13 @@ def get_team_posts():
 
     my_team_ids = {t.id for t in Team.query.join(Membership).filter(Membership.student_id == me.id).all()}
     all_teams = Team.query.filter(~Team.id.in_(my_team_ids)).all() if my_team_ids else Team.query.all()
+
+    search = (request.args.get("q") or "").strip().lower()
+    if search:
+        all_teams = [
+            t for t in all_teams
+            if search in t.project.lower() or search in t.course.lower()
+        ]
 
     posts = []
     for t in all_teams:
@@ -270,12 +281,12 @@ def update_me():
         else:
             me.name = name
 
-        if "major" in data:
-            major = data["major"]
-            if major not in VALID_MAJORS:
-                errors["major"] = f"Major must be one of: {', '.join(sorted(VALID_MAJORS))}."
-            else:
-                me.major = major
+    if "major" in data:
+        major = data["major"]
+        if major not in VALID_MAJORS:
+            errors["major"] = f"Major must be one of: {', '.join(sorted(VALID_MAJORS))}."
+        else:
+            me.major = major
 
     if "year" in data:
         year = data["year"]
@@ -392,6 +403,20 @@ def update_me():
         else:
             me.looking_for_team = val
 
+    if "username" in data:
+        username = (data["username"] or "").strip().lower()
+        if not USERNAME_PATTERN.match(username):
+            errors["username"] = "3-20 characters, letters, numbers, and underscores only."
+        else:
+            existing = Student.query.filter(Student.username == username, Student.id != me.id).first()
+            if existing:
+                return jsonify({
+                    "error": "username_taken",
+                    "message": "That username is taken.",
+                    "fields": {"username": "That username is taken."},
+                }), 409
+            me.username = username
+            
     if errors:
         return jsonify({"error": "validation", "fields": errors}), 400
     
@@ -414,8 +439,9 @@ def create_project():
     goal = data.get("goal")
     pace = data.get("pace")
 
-    if not (1 <= len(course) <= 60):
-        errors["course"] = "Course must be 1-60 characters."
+    course = course.upper()  # normalize before checking/storing
+    if course not in VALID_COURSES:
+        errors["course"] = "Must be a recognized course code."
     if not (2 <= len(project) <= 60):
         errors["project"] = "Project name must be 2-60 characters."
     if not isinstance(size, int) or not (MIN_TEAM_SIZE <= size <= MAX_TEAM_SIZE):
@@ -781,3 +807,10 @@ def update_availability():
         "availability": cleaned,
         "hoursPerWeek": hours_per_week(cleaned),
     }), 200
+
+@main.route("/api/courses", methods=["GET"])
+def get_courses():
+    me = current_student()
+    if not me:
+        return jsonify({"error": "not_signed_in"}), 401
+    return jsonify(sorted(VALID_COURSES))
