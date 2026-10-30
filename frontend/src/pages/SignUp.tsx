@@ -1,5 +1,6 @@
 // UF-only sign-up and sign-in (D3): /signup and /signin. Step 1 takes a UF email (plus a name when signing up),
-// step 2 a 6-digit one-time code. Prototype: no email is sent; the demo code is shown on the page.
+// step 2 a 6-digit one-time code. The prototype sends no email and shows the code on the page; a server in demo
+// mode sends the email and also returns the code, which the page shows the same way.
 // Our own design from the app's tokens: no UF logos and nothing that imitates UF's official login.
 import { AnimatePresence, motion } from 'motion/react'
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
@@ -347,8 +348,8 @@ function AuthFlow({ mode }: { mode: Mode }) {
                   {/* "Still works" stops being true once the code is locked, expired or replaced. */}
                   {reused && !locked && !spent ? (
                     <>Your code for <strong className="auth-address">{challenge?.email}</strong> still works.</>
-                  ) : demo ? (
-                    // Demo mode: no email goes out.
+                  ) : demo && USING_MOCK ? (
+                    // The prototype sends no email.
                     <>We'd email a code to <strong className="auth-address">{challenge?.email}</strong>.</>
                   ) : (
                     <>
@@ -363,7 +364,7 @@ function AuthFlow({ mode }: { mode: Mode }) {
               {demo && (
                 <div className="auth-demo">
                   <p className="auth-demo-text">
-                    Prototype: no email is sent. Your demo code is{' '}
+                    {USING_MOCK ? 'Prototype: no email is sent. Your demo code is' : 'Demo mode: no need to wait for the email. Your code is'}{' '}
                     <strong className="auth-demo-code">{spaced(demo)}</strong>.
                   </p>
                   <button

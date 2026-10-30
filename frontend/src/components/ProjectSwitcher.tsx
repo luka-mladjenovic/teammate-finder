@@ -8,6 +8,7 @@ import { OPEN_PROJECT_MENU_EVENT } from '../lib/projectMenu'
 import { isOwner } from '../lib/projects'
 import { useAppData } from '../state/AppData'
 import type { Team } from '../types'
+import { PlusGlyph } from './Glyphs'
 
 /** Side gutter of the phone panel, in px. */
 const GUTTER = 16
@@ -132,8 +133,10 @@ export function ProjectSwitcher() {
 
   if (!team) {
     return (
-      <Link to="/projects/new" className="team-pill ps-new">
-        <span className="ps-new-plus" aria-hidden="true">+</span>
+      <Link to="/projects/new" className="team-pill ps-new" title="New project">
+        <span className="ps-new-plus" aria-hidden="true">
+          <PlusGlyph />
+        </span>
         <span className="ps-new-label">New project</span>
       </Link>
     )

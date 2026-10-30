@@ -6,6 +6,7 @@ import { isApiError, USING_MOCK } from '../api'
 import { AvailabilityGrid } from '../components/AvailabilityGrid'
 import { AvailabilityPicker } from '../components/AvailabilityPicker'
 import { describedBy, FieldError, focusField, optionsOf, SelectField, TextField } from '../components/Field'
+import { CheckGlyph, PlusGlyph } from '../components/Glyphs'
 import { ProfileCard } from '../components/ProfileCard'
 import { SignedOutPage } from '../components/SignedOutPage'
 import { CHANNEL_LABEL, GOAL_HINT, GOAL_LABEL, PACE_LABEL, RESPONSE_LABEL, ROLE_LABEL, WEEKLY_HOURS_LABEL, WORK_MODE_LABEL } from '../labels'
@@ -782,7 +783,7 @@ function SetupForm({ viewer, signedIn, matchCtx, loadFailed, usernames, onSave }
                 const on = i >= 0
                 return (
                   <button key={r} type="button" className={`role-chip ${on ? 'is-on' : ''}`} aria-pressed={on} onClick={() => toggleRole(r)}>
-                    <span className="role-chip-icon" aria-hidden="true">{on ? '✓' : '+'}</span>
+                    <span className="role-chip-icon" aria-hidden="true">{on ? <CheckGlyph /> : <PlusGlyph />}</span>
                     {ROLE_LABEL[r]}
                     <AnimatePresence initial={false}>
                       {i === 0 && (

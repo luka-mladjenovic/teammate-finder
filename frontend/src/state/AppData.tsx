@@ -730,6 +730,45 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     void refreshInbox()
   }, [loading, session, viewerId, refreshInbox])
 
+  // Real API: other people's actions (a join request, an invite, being accepted or removed) show up without a
+  // reload: every 30 s while the tab is visible, and at once when you come back to it.
+  const projectsRef = useRef(projects)
+  useEffect(() => {
+    projectsRef.current = projects
+  }, [projects])
+  const lastSync = useRef(0)
+  const syncWithServer = useCallback(async () => {
+    if (sessionRef.current !== 'signed_in' || document.visibilityState !== 'visible' || Date.now() - lastSync.current < 5000) return
+    lastSync.current = Date.now()
+    void refreshInbox()
+    const before = projectsRef.current
+    try {
+      const ps = await api.myProjects()
+      // Changed here in the meantime (accept, leave, new project): keep that; the next sync catches up.
+      if (projectsRef.current !== before || sessionRef.current !== 'signed_in') return
+      const memberKey = (list: Team[]) => list.flatMap((p) => p.memberIds).sort().join(',')
+      if (memberKey(ps) === memberKey(before) && ps.map((p) => p.id).join(',') === before.map((p) => p.id).join(',')) return
+      setProjects(ps)
+      setCurrentId((id) => (id && ps.some((p) => p.id === id) ? id : ps[0]?.id))
+      // New teammates may not be in the people list yet (My team needs them).
+      addStudents(await api.students())
+    } catch {
+      // Quiet: the next sync tries again, and a 401 already signs you out.
+    }
+  }, [refreshInbox, addStudents])
+  useEffect(() => {
+    if (USING_MOCK || loading || session !== 'signed_in') return
+    const timer = window.setInterval(() => void syncWithServer(), 30_000)
+    const onShow = () => void syncWithServer()
+    window.addEventListener('focus', onShow)
+    document.addEventListener('visibilitychange', onShow)
+    return () => {
+      window.clearInterval(timer)
+      window.removeEventListener('focus', onShow)
+      document.removeEventListener('visibilitychange', onShow)
+    }
+  }, [loading, session, syncWithServer])
+
   const respondToInvite = useCallback(
     async (inv: Invite, decision: DecisionInput) => {
       const project = inv.team?.project ?? 'the project'

@@ -6,6 +6,7 @@ import { USING_MOCK } from '../api'
 import { AvailabilityGrid } from '../components/AvailabilityGrid'
 import { Avatar } from '../components/Avatar'
 import { EmailTeamLink, TeamContactCard } from '../components/ContactCard'
+import { PlusGlyph } from '../components/Glyphs'
 import { Handle } from '../components/Handle'
 import { ReviewButton } from '../components/ReviewDialog'
 import { SignedOutPage } from '../components/SignedOutPage'
@@ -151,7 +152,9 @@ export function MyTeam() {
               ))}
               {Array.from({ length: openSpots }, (_, i) => (
                 <motion.div layout key={`open-${i}`} className="slot slot-open">
-                  <span className="slot-plus" aria-hidden="true">+</span>
+                  <span className="slot-plus" aria-hidden="true">
+                    <PlusGlyph />
+                  </span>
                   <div className="stack" style={{ gap: 0 }}>
                     <strong className="small">Open spot</strong>
                     <Link to="/find" className="tiny">Find someone</Link>

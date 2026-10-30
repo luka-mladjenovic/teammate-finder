@@ -21,8 +21,8 @@
 .ps-trigger[aria-expanded='true'] .ps-chevron { transform: rotate(180deg); }
 
 /* No project yet: a pill-style link to /projects/new. */
-.ps-new { gap: 8px; font-size: 14px; font-weight: 600; }
-.ps-new-plus { display: grid; place-items: center; width: 20px; height: 20px; border-radius: var(--radius-full); background: var(--color-primary); color: var(--color-on-primary); font-weight: 700; line-height: 1; }
+.ps-new { gap: 8px; font-size: 14px; font-weight: 600; white-space: nowrap; }
+.ps-new-plus { flex: none; display: grid; place-items: center; width: 20px; height: 20px; border-radius: var(--radius-full); background: var(--color-primary); color: var(--color-on-primary); font-weight: 700; line-height: 1; }
 .ps-new:hover { box-shadow: 0 0 0 1px var(--color-border-strong), var(--shadow-float); }
 
 /* ---------- Switcher: menu ---------- */
