@@ -1,0 +1,217 @@
+/* Classic: the plain white look from tokens.css, in three accents (Mint, Coral, Electric) and two modes.
+   Driven by attributes on <html> set in fun/theme.ts: data-theme="default", data-accent, data-mode.
+   Like the other themes it steps aside for the Konami retro egg (:not(.theme-retro)).
+
+   Contrast: the brand accents are bright, so they fail under white text on a white page
+   (Mint 1.9:1, Electric 2.6:1, Coral 3.1:1; text needs 4.5:1). Light mode therefore uses a deeper
+   shade of the same hue for --color-primary (each 4.6:1 with white) and keeps the exact brand color
+   for tints. Dark mode uses the exact brand colors (6.0-10.1:1 on the dark canvas) with dark text on fills. */
+
+/* ---------- Light accents (neutrals stay as in tokens.css: white canvas) ---------- */
+html[data-theme='default'][data-accent='mint']:not(.theme-retro) {
+  --color-primary: #00846e;
+  --color-primary-active: #006857;
+  --color-primary-soft: #e6fbf7;
+  --color-primary-disabled: #9eefe2;
+  --color-on-primary: #ffffff;
+}
+
+html[data-theme='default'][data-accent='coral']:not(.theme-retro) {
+  --color-primary: #e8004a;
+  --color-primary-active: #bd003c;
+  --color-primary-soft: #ffedf3;
+  --color-primary-disabled: #ffbcd1;
+  --color-on-primary: #ffffff;
+}
+
+html[data-theme='default'][data-accent='electric']:not(.theme-retro) {
+  --color-primary: #007bba;
+  --color-primary-active: #006396;
+  --color-primary-soft: #e6f6ff;
+  --color-primary-disabled: #9edeff;
+  --color-on-primary: #ffffff;
+}
+
+/* ---------- Dark neutrals (shared by all three accents) ---------- */
+html[data-theme='default'][data-mode='dark']:not(.theme-retro) {
+  color-scheme: dark;
+
+  --color-ink: #f1f3f6;
+  --color-body: #c8cdd5;
+  --color-muted: #9ba2ad;
+  --color-muted-soft: #727a86;
+  --color-hairline: rgba(255, 255, 255, 0.1);
+  --color-hairline-soft: rgba(255, 255, 255, 0.06);
+  --color-border-strong: rgba(255, 255, 255, 0.22);
+  --color-canvas: #0f1216;
+  --color-surface-soft: #161a20;
+  --color-surface-strong: #1e232b;
+
+  --color-good: #4ade9b;
+  --color-good-soft: rgba(52, 211, 153, 0.13);
+  --color-warn: #fbbf5a;
+  --color-warn-soft: rgba(251, 191, 36, 0.12);
+  --color-danger: #ff8f87;
+  --color-danger-soft: rgba(248, 113, 113, 0.12);
+
+  /* Dark text on accent fills: every accent reads at 6.2:1 or better under it. */
+  --color-on-primary: #0b0d10;
+
+  --shadow-float: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 2px 6px rgba(0, 0, 0, 0.4), 0 8px 24px -8px rgba(0, 0, 0, 0.6);
+}
+
+/* ---------- Dark accents: the exact brand colors ---------- */
+html[data-theme='default'][data-mode='dark'][data-accent='mint']:not(.theme-retro) {
+  --color-primary: #00d6b2;
+  --color-primary-active: #4de2c9;
+  --color-primary-soft: #0d312f;
+  --color-primary-disabled: #096054;
+}
+
+html[data-theme='default'][data-mode='dark'][data-accent='coral']:not(.theme-retro) {
+  --color-primary: #ff4f87;
+  --color-primary-active: #ff84ab;
+  --color-primary-soft: #351c28;
+  --color-primary-disabled: #6f2a43;
+}
+
+html[data-theme='default'][data-mode='dark'][data-accent='electric']:not(.theme-retro) {
+  --color-primary: #00a8ff;
+  --color-primary-active: #4dc2ff;
+  --color-primary-soft: #0d2a3b;
+  --color-primary-disabled: #094e73;
+}
+
+/* ---------- Gators: official UF colors, exact values ----------
+   Orange #fa4616, Blue #0021a5, Green #22884c. No shades are made from them; the only derived values are
+   see-through tints of the exact colors. Measured contrast decides where each one goes:
+   - Blue: 11.9:1 with white text. A solid blue top bar in both modes, and the action color in light mode.
+     It's 1.6:1 on a dark page, so in dark mode it's used for surfaces, never for text.
+   - Orange: 5.5:1 with dark text on it, 5.3:1 as text on the navy page, but only 3.5:1 on white.
+     Badges, the bar's rule, and accents in light mode; the action color in dark mode.
+   - Green: 4.47:1 on white, 4.2:1 on navy, just under the 4.5:1 text minimum, so it stays in the brand mark.
+   Dark mode sits on deep navy rather than near-black, so it reads as UF navy-and-orange. */
+html[data-theme='default'][data-accent='gators']:not(.theme-retro) {
+  --uf-orange: #fa4616;
+  --uf-blue: #0021a5;
+  --uf-green: #22884c;
+
+  --color-primary: var(--uf-blue);
+  --color-primary-active: var(--uf-blue);
+  --color-primary-soft: rgba(0, 33, 165, 0.08);
+  --color-primary-disabled: rgba(0, 33, 165, 0.3);
+  /* --color-on-primary stays white from tokens.css; the dark block below switches it to dark text. */
+}
+
+html[data-theme='default'][data-mode='dark'][data-accent='gators']:not(.theme-retro) {
+  --color-canvas: #0b1226;
+  --color-surface-soft: #111a33;
+  --color-surface-strong: #141d36;
+
+  --color-primary: var(--uf-orange);
+  --color-primary-active: var(--uf-orange);
+  /* Blue tint as the highlight background: orange on it is 4.5:1, white text 14.4:1. */
+  --color-primary-soft: rgba(0, 33, 165, 0.45);
+  --color-primary-disabled: rgba(250, 70, 22, 0.4);
+}
+
+/* Top bar: solid UF Blue with white text (11.9:1) and an orange rule, in both modes. Tokens are swapped only
+   on the bar's own links, logo and buttons; the dropdown panels sit beside those, so they keep the page colors. */
+html[data-theme='default'][data-accent='gators']:not(.theme-retro) .topnav {
+  background: var(--uf-blue);
+  backdrop-filter: none;
+  border-bottom: 3px solid var(--uf-orange);
+}
+html[data-theme='default'][data-accent='gators']:not(.theme-retro) :is(.topnav .brand, .topnav-links, .topnav-menu-btn, .topnav .acct-signin, .topnav .acct-signup) {
+  --color-ink: #ffffff;
+  --color-body: #ffffff;
+  --color-muted: rgba(255, 255, 255, 0.82); /* 8.3:1 on the blue */
+  --color-surface-soft: rgba(255, 255, 255, 0.14);
+  --color-hairline: rgba(255, 255, 255, 0.3);
+  /* Orange badges and Sign up button with dark text: 5.5:1. */
+  --color-primary: var(--uf-orange);
+  --color-primary-active: var(--uf-orange);
+  --color-on-primary: #0b0d10;
+}
+
+/* Logo text in white: orange on the blue bar is only 3.4:1. */
+html[data-theme='default'][data-accent='gators']:not(.theme-retro) .topnav .brand { color: #ffffff; }
+
+/* Green means "good": match-check icons and filled team spots. These are icons and shapes, not text,
+   so 3:1 is the bar (icon on its tint: 3.9:1 light, 3.6:1 dark; dots 4.5:1 on white, 4.2:1 on navy). */
+html[data-theme='default'][data-accent='gators']:not(.theme-retro) :is(.reason-good, .coverage .covered) .reason-icon {
+  color: var(--uf-green);
+  background: rgba(34, 136, 76, 0.12);
+}
+html[data-theme='default'][data-accent='gators']:not(.theme-retro) .team-dots i.on { background: var(--uf-green); }
+
+/* Availability: green means "free" (cells 4.5:1 on white, 4.2:1 on navy; white checkmarks 4.5:1). */
+html[data-theme='default'][data-accent='gators']:not(.theme-retro) :is(.ap-cell.is-on, .ap-cell.is-on:hover, .avail-shared) {
+  background: var(--uf-green);
+  border-color: var(--uf-green);
+  color: #ffffff;
+}
+html[data-theme='default'][data-accent='gators']:not(.theme-retro) .avail-shared { box-shadow: 0 0 0 3px rgba(34, 136, 76, 0.18); }
+
+/* Dark mode buttons stay blue with white text (11.9:1), so dark reads mostly blue like light mode.
+   Orange is left for links, badges and accents. Hover shows an orange ring instead of a new shade. */
+html[data-theme='default'][data-mode='dark'][data-accent='gators']:not(.theme-retro) :is(.btn-primary, .filter-orb) {
+  background: var(--uf-blue);
+  color: #ffffff;
+}
+html[data-theme='default'][data-mode='dark'][data-accent='gators']:not(.theme-retro) :is(.btn-primary, .filter-orb):hover {
+  background: var(--uf-blue);
+  box-shadow: 0 0 0 2px var(--uf-orange);
+}
+html[data-theme='default'][data-mode='dark'][data-accent='gators']:not(.theme-retro) .btn-primary:disabled {
+  background: rgba(0, 33, 165, 0.45);
+  box-shadow: none;
+}
+
+/* Orange accents on the page itself (non-text, so 3:1 is enough: 3.5:1 on white). */
+html[data-theme='default'][data-accent='gators']:not(.theme-retro) .context-card { border-left: 4px solid var(--uf-orange); }
+html[data-theme='default'][data-accent='gators']:not(.theme-retro) :focus-visible { outline-color: var(--uf-orange); }
+
+/* ---------- Spots in the base styles that hard-code a light-mode or indigo color ---------- */
+html[data-theme='default']:not(.theme-retro) .avail-theirs { border-color: var(--color-primary-disabled); }
+html[data-theme='default']:not(.theme-retro) .filter-orb { color: var(--color-on-primary); }
+html[data-theme='default']:not(.theme-retro) .avail-shared { box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 14%, transparent); }
+
+/* The sticky top bar is translucent white in tokens.css's look; match the dark canvas instead. */
+html[data-theme='default'][data-mode='dark']:not(.theme-retro):not([data-accent='gators']) .topnav { background: rgba(15, 18, 22, 0.88); }
+
+/* ---------- Mode and accent controls in the Style dialog ---------- */
+.sp-classic-row { display: flex; align-items: center; gap: var(--space-md); flex-wrap: wrap; }
+.sp-accents { display: flex; gap: var(--space-sm); }
+.sp-accent {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-full);
+  border: 2px solid var(--color-canvas);
+  box-shadow: 0 0 0 1px var(--color-hairline);
+  cursor: pointer;
+  padding: 0;
+  transition: transform var(--dur-fast), box-shadow var(--dur-fast);
+}
+.sp-accent:hover { transform: scale(1.08); }
+.sp-accent[aria-checked='true'] { box-shadow: 0 0 0 2px var(--color-ink); }
+.sp-accent:focus-visible { outline: 2px solid var(--color-ink); outline-offset: 3px; }
+.sp-mode {
+  display: inline-flex;
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-full);
+  padding: 2px;
+  background: var(--color-surface-soft);
+}
+.sp-mode button {
+  border: 0;
+  background: transparent;
+  color: var(--color-body);
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.sp-mode button[aria-pressed='true'] { background: var(--color-canvas); color: var(--color-ink); box-shadow: var(--shadow-float); }

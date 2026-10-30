@@ -13,12 +13,15 @@ import './styles/account.css'
 import './styles/projects.css'
 import './styles/inbox.css'
 // Visual directions, each scoped under html.theme-<name> (switch with the Style button or ?theme=).
+import './styles/themes/classic.css'
 import './styles/themes/aurora.css'
 import './styles/themes/glass.css'
 import './styles/themes/soft.css'
-import { applyTheme, initialTheme } from './fun/theme'
+import { applyAccent, applyMode, applyTheme, initialAccent, initialMode, initialTheme } from './fun/theme'
 
-// Apply the saved/URL theme before the first paint to avoid a flash of the default look.
+// Apply the saved/URL theme, accent and mode before the first paint to avoid a flash of the default look.
+applyAccent(initialAccent(), false)
+applyMode(initialMode(), false)
 applyTheme(initialTheme())
 
 createRoot(document.getElementById('root')!).render(

@@ -5,11 +5,25 @@ import auroraThumb from '../assets/styles/aurora.webp'
 import classicThumb from '../assets/styles/default.webp'
 import glassThumb from '../assets/styles/glass.webp'
 import softThumb from '../assets/styles/soft.webp'
-import { IS_EMBED, THEMES, applyTheme, initialTheme, type ThemeId } from '../fun/theme'
+import {
+  ACCENTS,
+  IS_EMBED,
+  THEMES,
+  accentSwatch,
+  applyAccent,
+  applyMode,
+  applyTheme,
+  initialAccent,
+  initialMode,
+  initialTheme,
+  type AccentId,
+  type Mode,
+  type ThemeId,
+} from '../fun/theme'
 
 // Thumbnails are half-size WebP captures of the Find page (about 19 KB each), so the dialog opens instantly.
 const INFO: Record<ThemeId, { thumb: string; tagline: string; blurb: string; tags: string[] }> = {
-  default: { thumb: classicThumb, tagline: 'The original look', blurb: 'Plain white with an indigo accent.', tags: [] },
+  default: { thumb: classicThumb, tagline: 'The original look', blurb: 'Clean and simple, light or dark, in Electric, Mint or Coral.', tags: [] },
   aurora: {
     thumb: auroraThumb,
     tagline: 'Dark and glowing',
@@ -36,6 +50,8 @@ const themeLabel = (id: ThemeId) => THEMES.find((t) => t.id === id)?.label ?? id
 /** "Style" button in the top bar. Opens a dialog with a thumbnail and short description of each visual direction. */
 export function StylePicker() {
   const [theme, setTheme] = useState<ThemeId>(initialTheme)
+  const [accent, setAccent] = useState<AccentId>(initialAccent)
+  const [mode, setMode] = useState<Mode>(initialMode)
   const [open, setOpen] = useState(false)
   const [announce, setAnnounce] = useState('')
   const dialog = useRef<HTMLDialogElement>(null)
@@ -59,22 +75,35 @@ export function StylePicker() {
   }, [open])
 
   // The new style grows out of the card that was picked (View Transitions), or swaps instantly where unsupported.
-  const choose = (id: ThemeId, e: MouseEvent<HTMLElement>) => {
+  // `classic` carries an accent/mode change for Classic; it's applied inside the same transition.
+  const choose = (id: ThemeId, e: MouseEvent<HTMLElement>, classic?: { accent: AccentId; mode: Mode }) => {
     const box = e.currentTarget.getBoundingClientRect()
     const x = box.left + box.width / 2
     const y = box.top + box.height / 2
     const commit = () => {
+      if (classic) {
+        applyAccent(classic.accent)
+        applyMode(classic.mode)
+      }
       applyTheme(id)
       dialog.current?.close()
       flushSync(() => {
         setTheme(id)
+        if (classic) {
+          setAccent(classic.accent)
+          setMode(classic.mode)
+        }
         setOpen(false)
       })
     }
-    setAnnounce(`${themeLabel(id)} style applied`)
+    const label = classic
+      ? `Classic, ${ACCENTS.find((a) => a.id === classic.accent)?.label}, ${classic.mode} mode`
+      : themeLabel(id)
+    setAnnounce(`${label} style applied`)
 
+    const unchanged = id === theme && (!classic || (classic.accent === accent && classic.mode === mode))
     const calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    if (id === theme || calm || typeof document.startViewTransition !== 'function') {
+    if (unchanged || calm || typeof document.startViewTransition !== 'function') {
       commit()
       return
     }
@@ -104,7 +133,11 @@ export function StylePicker() {
         aria-label={`Change style (current: ${themeLabel(theme)})`}
         onClick={() => setOpen(true)}
       >
-        <span className="theme-swatch" style={{ background: THEMES.find((t) => t.id === theme)?.swatch }} aria-hidden="true" />
+        <span
+          className="theme-swatch"
+          style={{ background: theme === 'default' ? accentSwatch(accent) : THEMES.find((t) => t.id === theme)?.swatch }}
+          aria-hidden="true"
+        />
         <span className="small">Style</span>
       </button>
 
@@ -178,18 +211,54 @@ export function StylePicker() {
             </div>
 
             <footer className="sp-foot">
-              <button
-                type="button"
-                className={`sp-classic ${theme === 'default' ? 'is-current' : ''}`}
-                aria-pressed={theme === 'default'}
-                data-autofocus={theme === 'default' || undefined}
-                onClick={(e) => choose('default', e)}
-              >
-                <img src={INFO.default.thumb} alt="" width={64} height={40} />
-                <span>
-                  <strong>Classic</strong> <span className="muted">· {INFO.default.tagline.toLowerCase()}</span>
+              <div className="sp-classic-row">
+                <button
+                  type="button"
+                  className={`sp-classic ${theme === 'default' ? 'is-current' : ''}`}
+                  aria-pressed={theme === 'default'}
+                  aria-describedby="sp-default-blurb"
+                  data-autofocus={theme === 'default' || undefined}
+                  onClick={(e) => choose('default', e, { accent, mode })}
+                >
+                  <img src={INFO.default.thumb} alt="" width={64} height={40} />
+                  <span>
+                    <strong>Classic</strong> <span className="muted">· {INFO.default.tagline.toLowerCase()}</span>
+                  </span>
+                </button>
+                <span id="sp-default-blurb" className="sr-only">
+                  {INFO.default.blurb}
                 </span>
-              </button>
+
+                {/* Picking an accent or a mode also switches to Classic, since only Classic uses them. */}
+                <div className="sp-accents" role="radiogroup" aria-label="Classic accent color">
+                  {ACCENTS.map((a) => (
+                    <button
+                      key={a.id}
+                      type="button"
+                      role="radio"
+                      className="sp-accent"
+                      style={{ background: a.swatch }}
+                      aria-checked={theme === 'default' && accent === a.id}
+                      aria-label={`Classic, ${a.label}`}
+                      title={a.label}
+                      onClick={(e) => choose('default', e, { accent: a.id, mode })}
+                    />
+                  ))}
+                </div>
+
+                <div className="sp-mode" role="group" aria-label="Classic light or dark mode">
+                  {(['light', 'dark'] as const).map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      aria-pressed={theme === 'default' && mode === m}
+                      onClick={(e) => choose('default', e, { accent, mode: m })}
+                    >
+                      {m === 'light' ? 'Light' : 'Dark'}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <Link to="/styles" className="sp-compare" onClick={() => setOpen(false)}>
                 Compare all three live, side by side →
               </Link>

@@ -190,10 +190,25 @@ export function TopNav() {
       <div className="topnav-inner">
         <PageMenu />
         <Link to="/" className="brand">
-          <span className="brand-mark" aria-hidden="true">
-            <i /><i /><i /><i />
-          </span>
-          <span className="brand-text">Teammate Finder</span>
+          {/* StackUp mark: three bars tapering along the arrow's slant. Bars use the accent color and the arrow
+              the text color (styles in components.css), so it fits every theme and both modes. */}
+          <svg className="brand-mark" viewBox="340 365 335 270" aria-hidden="true" focusable="false">
+            <defs>
+              <clipPath id="brand-slant">
+                <polygon points="300,300 596,300 352.3,700 300,700" />
+              </clipPath>
+            </defs>
+            <g className="brand-bars" clipPath="url(#brand-slant)">
+              <rect x="350" y="375" width="300" height="64.67" rx="10" />
+              <rect x="350" y="467.67" width="300" height="64.67" rx="10" />
+              <rect x="350" y="560.33" width="300" height="64.67" rx="10" />
+            </g>
+            <path
+              className="brand-arrow"
+              d="M655.324,500.489 L625.5,500.489 L625.5,615.373 C625.5,620.896 621.023,625.373 615.5,625.373 L565.5,625.373 C559.977,625.373 555.5,620.896 555.5,615.373 L555.5,500.489 L525.676,500.489 C517.872,500.489 513.076,491.949 517.137,485.285 L581.961,378.91 C585.858,372.515 595.142,372.515 599.039,378.91 L663.863,485.285 C667.924,491.949 663.128,500.489 655.324,500.489 Z"
+            />
+          </svg>
+          <span className="brand-text">StackUp</span>
         </Link>
         <nav className="topnav-links" aria-label="Main">
           {PAGES.map((p) => (

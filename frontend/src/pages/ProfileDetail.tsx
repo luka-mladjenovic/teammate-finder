@@ -192,7 +192,7 @@ export function ProfileDetail() {
             <div><dt>Time per project</dt><dd>{WEEKLY_HOURS_LABEL[s.weeklyHours]} a week</dd></div>
             <div><dt>Works</dt><dd>{s.workMode.map((m) => WORK_MODE_LABEL[m]).join(' / ')}</dd></div>
           </dl>
-          <p className="tiny muted">"Strong grade" is a self-stated goal, not a grade. Teammate Finder never collects grades.</p>
+          <p className="tiny muted">"Strong grade" is a self-stated goal, not a grade. StackUp never collects grades.</p>
         </section>
 
         {!isSelf && !isMember && matchCtx && (

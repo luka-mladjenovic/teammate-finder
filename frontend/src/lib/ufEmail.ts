@@ -39,6 +39,6 @@ export function checkUfEmail(raw: string): UfEmailCheck {
   return {
     ok: false,
     problem: 'other_domain',
-    message: 'Use your @ufl.edu address. Teammate Finder is only for UF students for now, and teammates contact you by UF email.',
+    message: 'Use your @ufl.edu address. StackUp is only for UF students for now, and teammates contact you by UF email.',
   }
 }
