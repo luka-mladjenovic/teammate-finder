@@ -96,7 +96,7 @@
    so the main sections never hide behind the Menu on a laptop or a classroom projector. As it narrows:
    - the project name ends in an ellipsis (its full name stays in the pill's title and accessible name);
    - up to 1280 px the gaps tighten;
-   - up to 1100 px the pill shows dots and count only;
+   - up to 1100 px the pill shows dots and count only, and New project (no project yet) shows only its "+";
    - up to 1000 px the brand keeps only its mark (the link keeps its accessible name) and the gaps tighten again;
    - up to 820 px the page links move into the Menu panel.
    Signed out, Sign in + Sign up are wider than the avatar, so the steps come sooner: the name goes at
@@ -119,6 +119,12 @@
 @media (max-width: 1100px) {
   .topnav-inner { gap: 16px; }
   .topnav .ps-name { display: none; }
+  /* The label stays as the link's accessible name; the link's title shows it on hover. */
+  .topnav .ps-new-label { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+  .topnav .ps-new { padding: 8px; }
+}
+@media (max-width: 560px) {
+  .topnav .ps-new { padding: 10px; }
 }
 /* Mark only: the brand text stays as the link's accessible name, and the mark gets a 41 px hit area. */
 @media (max-width: 1140px) {

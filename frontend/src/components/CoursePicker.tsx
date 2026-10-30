@@ -1,7 +1,8 @@
 // The New project Course field: a searchable list of course codes from GET /api/courses (iteration 3,
 // docs/iteration-3/search-and-usernames.md D). ARIA APG combobox, "list autocomplete with manual selection": typing
 // narrows the list ("cen" or "4721"), ↓/↑ move the highlight, Enter or a click picks a code, Escape closes the list
-// (and clears the text when it is already closed). Nothing is picked automatically.
+// (and clears the text when it is already closed). Nothing is picked while typing; Enter with nothing highlighted
+// picks the code typed in full, or the only one left in the list.
 import '../styles/setup.css'
 import '../styles/courses.css'
 import { useEffect, useMemo, useState, type KeyboardEvent } from 'react'
@@ -92,8 +93,8 @@ export function CoursePicker({ id, value, onChange, courses, error }: Props) {
       e.preventDefault()
       if (activeCode) pick(activeCode)
       else {
-        const exact = findCourse(courses ?? [], value)
-        if (exact) pick(exact)
+        const only = findCourse(courses ?? [], value) ?? (matches.length === 1 ? matches[0] : undefined)
+        if (only) pick(only)
         else close()
       }
       return

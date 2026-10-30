@@ -61,7 +61,7 @@ The current project (the switcher in the top bar) drives Find teammates, compare
 | `/study` | placeholder (study mode comes next) |
 | any other path | 404 page; click the ghost to play Deadline Dash |
 
-With a real API (`VITE_API_URL`) and no session, `/find`, `/team`, `/people/:id` and `/profile/setup` show a sign-in prompt (`SignedOutPage`) instead of their content; a `401` mid-session switches to it with a "Your session ended" toast. The mock keeps its demo data after Sign out, so it never shows the prompt.
+With a real API (`VITE_API_URL`) and no session, `/find`, `/team`, `/people/:id` and `/profile/setup` show a sign-in prompt (`SignedOutPage`) instead of their content; a `401` mid-session switches to it with a "Your session ended" toast. The mock keeps its demo data after Sign out, so it never shows the prompt. While signed in, the app quietly re-reads the inbox and your projects every 30 s (only while the tab is visible) and when you come back to the tab, so join requests, invites and acceptances by other people show up without a reload.
 
 Search text is kept in memory for the session (never in the URL), so it survives opening a profile and going Back. Usernames show only when the server's `GET /api/me` has a `username` key (the mock does; today's Flask backend doesn't), so profile saves never send a key the server doesn't know.
 

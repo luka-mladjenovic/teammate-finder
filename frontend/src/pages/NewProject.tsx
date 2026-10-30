@@ -8,6 +8,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { isApiError, USING_MOCK } from '../api'
 import { CoursePicker } from '../components/CoursePicker'
 import { describedBy, FieldError, focusField, SelectField, TextField } from '../components/Field'
+import { CheckGlyph, PlusGlyph } from '../components/Glyphs'
 import { SignedOutPage } from '../components/SignedOutPage'
 import { GOAL_HINT, GOAL_LABEL, PACE_LABEL, ROLE_LABEL } from '../labels'
 import { joinWords } from '../lib/contact'
@@ -243,7 +244,7 @@ function NewProjectForm({ viewer, projects }: { viewer?: Student; projects: Team
                 const mine = viewer?.roles.includes(r)
                 return (
                   <button key={r} type="button" className={`role-chip ${on ? 'is-on' : ''}`} aria-pressed={on} onClick={() => toggleRole(r)}>
-                    <span className="role-chip-icon" aria-hidden="true">{on ? '✓' : '+'}</span>
+                    <span className="role-chip-icon" aria-hidden="true">{on ? <CheckGlyph /> : <PlusGlyph />}</span>
                     {ROLE_LABEL[r]}
                     {mine && (
                       <>
