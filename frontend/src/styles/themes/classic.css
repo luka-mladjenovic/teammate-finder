@@ -143,6 +143,37 @@ html[data-theme='default'][data-accent='gators']:not(.theme-retro) .brand-mark i
 html[data-theme='default'][data-accent='gators']:not(.theme-retro) .brand-mark i:nth-child(3) { background: var(--uf-green); }
 html[data-theme='default'][data-accent='gators']:not(.theme-retro) .brand-mark i:nth-child(4) { background: var(--uf-orange); }
 
+/* Green means "good": match-check icons and filled team spots. These are icons and shapes, not text,
+   so 3:1 is the bar (icon on its tint: 3.9:1 light, 3.6:1 dark; dots 4.5:1 on white, 4.2:1 on navy). */
+html[data-theme='default'][data-accent='gators']:not(.theme-retro) :is(.reason-good, .coverage .covered) .reason-icon {
+  color: var(--uf-green);
+  background: rgba(34, 136, 76, 0.12);
+}
+html[data-theme='default'][data-accent='gators']:not(.theme-retro) .team-dots i.on { background: var(--uf-green); }
+
+/* Availability: green means "free" (cells 4.5:1 on white, 4.2:1 on navy; white checkmarks 4.5:1). */
+html[data-theme='default'][data-accent='gators']:not(.theme-retro) :is(.ap-cell.is-on, .ap-cell.is-on:hover, .avail-shared) {
+  background: var(--uf-green);
+  border-color: var(--uf-green);
+  color: #ffffff;
+}
+html[data-theme='default'][data-accent='gators']:not(.theme-retro) .avail-shared { box-shadow: 0 0 0 3px rgba(34, 136, 76, 0.18); }
+
+/* Dark mode buttons stay blue with white text (11.9:1), so dark reads mostly blue like light mode.
+   Orange is left for links, badges and accents. Hover shows an orange ring instead of a new shade. */
+html[data-theme='default'][data-mode='dark'][data-accent='gators']:not(.theme-retro) :is(.btn-primary, .filter-orb) {
+  background: var(--uf-blue);
+  color: #ffffff;
+}
+html[data-theme='default'][data-mode='dark'][data-accent='gators']:not(.theme-retro) :is(.btn-primary, .filter-orb):hover {
+  background: var(--uf-blue);
+  box-shadow: 0 0 0 2px var(--uf-orange);
+}
+html[data-theme='default'][data-mode='dark'][data-accent='gators']:not(.theme-retro) .btn-primary:disabled {
+  background: rgba(0, 33, 165, 0.45);
+  box-shadow: none;
+}
+
 /* Orange accents on the page itself (non-text, so 3:1 is enough: 3.5:1 on white). */
 html[data-theme='default'][data-accent='gators']:not(.theme-retro) .context-card { border-left: 4px solid var(--uf-orange); }
 html[data-theme='default'][data-accent='gators']:not(.theme-retro) :focus-visible { outline-color: var(--uf-orange); }
@@ -150,6 +181,7 @@ html[data-theme='default'][data-accent='gators']:not(.theme-retro) :focus-visibl
 /* ---------- Spots in the base styles that hard-code a light-mode or indigo color ---------- */
 html[data-theme='default']:not(.theme-retro) .avail-theirs { border-color: var(--color-primary-disabled); }
 html[data-theme='default']:not(.theme-retro) .filter-orb { color: var(--color-on-primary); }
+html[data-theme='default']:not(.theme-retro) .avail-shared { box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 14%, transparent); }
 
 /* The sticky top bar is translucent white in tokens.css's look; match the dark canvas instead. */
 html[data-theme='default'][data-mode='dark']:not(.theme-retro):not([data-accent='gators']) .topnav { background: rgba(15, 18, 22, 0.88); }

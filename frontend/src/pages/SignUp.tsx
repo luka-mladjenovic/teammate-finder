@@ -282,7 +282,7 @@ function AuthFlow({ mode }: { mode: Mode }) {
                 </h1>
                 <p className="muted">
                   {signup
-                    ? "Teammate Finder is for UF students. Your @ufl.edu address shows classmates you're real."
+                    ? "StackUp is for UF students. Your @ufl.edu address shows classmates you're real."
                     : "We'll check it's you with a one-time code."}
                 </p>
               </div>

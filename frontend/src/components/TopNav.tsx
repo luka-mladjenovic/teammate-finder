@@ -193,7 +193,7 @@ export function TopNav() {
           <span className="brand-mark" aria-hidden="true">
             <i /><i /><i /><i />
           </span>
-          <span className="brand-text">Teammate Finder</span>
+          <span className="brand-text">StackUp</span>
         </Link>
         <nav className="topnav-links" aria-label="Main">
           {PAGES.map((p) => (

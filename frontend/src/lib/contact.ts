@@ -16,9 +16,9 @@ export function subjectProject(shared: readonly Team[], currentId?: string): Tea
   return shared.find((p) => p.id === currentId) ?? shared[0]
 }
 
-/** "Database Project (Database Systems) - Teammate Finder". */
+/** "Database Project (Database Systems) - StackUp". */
 export function contactSubject(team: Pick<Team, 'project' | 'course'>): string {
-  return `${team.project} (${team.course}) - Teammate Finder`
+  return `${team.project} (${team.course}) - StackUp`
 }
 
 /** A mailto link with a prefilled subject. Only a convenience: it opens nothing where no mail app is set up. */
