@@ -57,7 +57,8 @@ class Student(db.Model):
             "goal": self.goal,
             "pace": self.pace,
             "pastWork": self.past_work,
-            "reviews": [],  # reviews aren't built yet (Step 5 / later)
+            # newest first; Review.to_dict never includes the reviewer (reviews are anonymous)
+            "reviews": [r.to_dict() for r in Review.query.filter_by(reviewee_id=self.id).order_by(Review.created_at.desc()).all()],
             "lookingForTeam": self.looking_for_team,
             "username": self.username
         }
