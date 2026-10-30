@@ -137,12 +137,6 @@ html[data-theme='default'][data-accent='gators']:not(.theme-retro) :is(.topnav .
 /* Logo text in white: orange on the blue bar is only 3.4:1. */
 html[data-theme='default'][data-accent='gators']:not(.theme-retro) .topnav .brand { color: #ffffff; }
 
-/* Brand mark in the three colors. White replaces blue here, since blue would vanish on the blue bar. */
-html[data-theme='default'][data-accent='gators']:not(.theme-retro) .brand-mark i:nth-child(1) { background: var(--uf-orange); }
-html[data-theme='default'][data-accent='gators']:not(.theme-retro) .brand-mark i:nth-child(2) { background: #ffffff; }
-html[data-theme='default'][data-accent='gators']:not(.theme-retro) .brand-mark i:nth-child(3) { background: var(--uf-green); }
-html[data-theme='default'][data-accent='gators']:not(.theme-retro) .brand-mark i:nth-child(4) { background: var(--uf-orange); }
-
 /* Green means "good": match-check icons and filled team spots. These are icons and shapes, not text,
    so 3:1 is the bar (icon on its tint: 3.9:1 light, 3.6:1 dark; dots 4.5:1 on white, 4.2:1 on navy). */
 html[data-theme='default'][data-accent='gators']:not(.theme-retro) :is(.reason-good, .coverage .covered) .reason-icon {

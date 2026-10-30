@@ -7,9 +7,10 @@
 .topnav { position: sticky; top: 0; z-index: 20; background: rgba(255, 255, 255, 0.92); backdrop-filter: blur(10px); border-bottom: 1px solid var(--color-hairline-soft); }
 .topnav-inner { max-width: var(--page-max); margin: 0 auto; padding: 0 var(--space-lg); height: 72px; display: flex; align-items: center; gap: var(--space-xl); }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; color: var(--color-primary); text-decoration: none; }
-.brand-mark { display: grid; grid-template-columns: repeat(2, 9px); gap: 3px; }
-.brand-mark i { width: 9px; height: 9px; border-radius: 3px; background: var(--color-primary); }
-.brand-mark i:nth-child(4) { background: var(--color-primary-disabled); }
+/* StackUp mark (TopNav.tsx): bars in the accent color, arrow in the text color. */
+.brand-mark { display: block; height: 24px; width: auto; flex: none; overflow: visible; }
+.brand-bars { fill: var(--color-primary); }
+.brand-arrow { fill: var(--color-ink); }
 .topnav-links { display: flex; gap: 4px; }
 .topnav-links a { padding: 8px 14px; border-radius: var(--radius-full); text-decoration: none; font-size: 14px; font-weight: 500; color: var(--color-muted); transition: background var(--dur-fast); }
 .topnav-links a:hover { background: var(--color-surface-soft); color: var(--color-ink); }
