@@ -108,7 +108,7 @@ async function send<T>(method: Method, path: string, body: unknown, mock: () => 
     } catch (error) {
       result = { ok: false, error }
     }
-    await wait(350 + Math.random() * 300)
+    if (mockLatency) await wait(350 + Math.random() * 300)
     if (!result.ok) throw reported(method, result.error)
     return result.value
   }
@@ -165,46 +165,115 @@ const MAX_CODES_PER_HOUR = 5
 
 const hoursAgo = (h: number) => new Date(Date.now() - h * 60 * 60 * 1000).toISOString()
 
+/** The demo's server tables, fresh. A function so the study harness can put them back after a task (loadStudyData). */
+function demoTables() {
+  return {
+    me: structuredClone(ME),
+    /** Everyone else. A copy, so a new review shows up in later GET /api/students answers. */
+    students: structuredClone(STUDENTS),
+    /** Reviews the viewer wrote: [revieweeId, teamId]. Never sent to any client (reviews are anonymous). */
+    reviewsByViewer: structuredClone(MOCK_REVIEWS_BY_VIEWER),
+    projects: DEMO_NO_PROJECTS ? [] : structuredClone(PROJECTS),
+    /** Invites sent from the viewer's projects. */
+    invites: (DEMO_NO_PROJECTS ? [] : MOCK_SENT_INVITES).map(([projectId, studentId, h], i): Invite => ({
+      id: `inv_sent${i}`,
+      projectId,
+      studentId,
+      status: 'pending',
+      createdAt: hoursAgo(h),
+    })),
+    requests: [] as JoinRequest[],
+    /** Teams that invited the viewer. Accepting moves one into `projects`. */
+    otherTeams: structuredClone(INVITING_TEAMS),
+    /** Invites sent to the viewer (Inbox). */
+    received: MOCK_INVITES.map(([projectId, h], i): Invite => ({
+      id: `inv_mock${i}`,
+      projectId,
+      studentId: ME.id,
+      status: 'pending',
+      createdAt: hoursAgo(h),
+    })),
+    /** Join requests to projects the viewer owns (Inbox). None for a new account. */
+    incoming: (DEMO_NO_PROJECTS ? [] : MOCK_JOIN_REQUESTS).map(([postId, studentId, h], i): JoinRequest => ({
+      id: `req_mock${i}`,
+      postId,
+      studentId,
+      status: 'pending',
+      createdAt: hoursAgo(h),
+    })),
+    /** Open teams (GET /api/team-posts). */
+    teamPosts: TEAM_POSTS,
+    /** What GET /api/students/:id/contact answers. */
+    emails: MOCK_EMAILS,
+  }
+}
+
 const db = {
   // The prototype starts signed in as the demo viewer.
   signedIn: true,
-  me: structuredClone(ME),
-  /** Everyone else. A copy, so a new review shows up in later GET /api/students answers. */
-  students: structuredClone(STUDENTS),
-  /** Reviews the viewer wrote: [revieweeId, teamId]. Never sent to any client (reviews are anonymous). */
-  reviewsByViewer: structuredClone(MOCK_REVIEWS_BY_VIEWER),
-  projects: DEMO_NO_PROJECTS ? [] : structuredClone(PROJECTS),
-  /** Invites sent from the viewer's projects. */
-  invites: (DEMO_NO_PROJECTS ? [] : MOCK_SENT_INVITES).map(([projectId, studentId, h], i): Invite => ({
-    id: `inv_sent${i}`,
-    projectId,
-    studentId,
-    status: 'pending',
-    createdAt: hoursAgo(h),
-  })),
-  requests: [] as JoinRequest[],
-  /** Teams that invited the viewer. Accepting moves one into `projects`. */
-  otherTeams: structuredClone(INVITING_TEAMS),
-  /** Invites sent to the viewer (Inbox). */
-  received: MOCK_INVITES.map(([projectId, h], i): Invite => ({
-    id: `inv_mock${i}`,
-    projectId,
-    studentId: ME.id,
-    status: 'pending',
-    createdAt: hoursAgo(h),
-  })),
-  /** Join requests to projects the viewer owns (Inbox). None for a new account. */
-  incoming: (DEMO_NO_PROJECTS ? [] : MOCK_JOIN_REQUESTS).map(([postId, studentId, h], i): JoinRequest => ({
-    id: `req_mock${i}`,
-    postId,
-    studentId,
-    status: 'pending',
-    createdAt: hoursAgo(h),
-  })),
+  ...demoTables(),
   challenge: null as MockChallenge | null,
   codesSent: {} as Record<string, number[]>,
   seq: 0,
 }
+
+// ---------- Study harness (/study, docs/evaluation/plan.md section 8). Mock only. ----------
+
+/** What a StackUp study task runs on instead of the demo data. */
+export interface StudyData {
+  viewer: Student
+  /** Everyone GET /api/students returns: the viewer's teammates and the students looking for a team. */
+  students: Student[]
+  /** The task's only project. */
+  project: Team
+  /** Their (fake) UF emails, for My team once someone shares the project. */
+  emails: Record<string, string>
+}
+
+/** Off while a study task runs, so every participant gets the same instant answers. */
+let mockLatency = true
+/** Goes up on every switch; App.tsx remounts AppData with it as the key, so all app state starts over on the new data. */
+let mockDataVersion = 0
+const mockDataListeners = new Set<() => void>()
+
+/**
+ * Loads a study scenario into the mock server (`data`), or puts fresh demo data back (`null`). A scenario has one
+ * project and nothing else: no invites, join requests, inbox items, open teams or reviews by the viewer, and no
+ * simulated latency. Then every subscriber hears about it (App.tsx remounts AppData, which loads everything again),
+ * so nothing from before the switch survives on either side. Never called in the normal demo.
+ */
+export function loadStudyData(data: StudyData | null) {
+  if (!USING_MOCK) return
+  const tables: ReturnType<typeof demoTables> = data
+    ? {
+        me: structuredClone(data.viewer),
+        students: structuredClone(data.students),
+        reviewsByViewer: [],
+        projects: [structuredClone(data.project)],
+        invites: [],
+        requests: [],
+        otherTeams: [],
+        received: [],
+        incoming: [],
+        teamPosts: [],
+        emails: { ...data.emails },
+      }
+    : demoTables()
+  Object.assign(db, tables, { signedIn: true, challenge: null, codesSent: {} })
+  mockLatency = !data
+  mockDataVersion++
+  mockDataListeners.forEach((fn) => fn())
+}
+
+/** For useSyncExternalStore: tells `fn` when loadStudyData switched the data. */
+export function subscribeMockData(fn: () => void) {
+  mockDataListeners.add(fn)
+  return () => {
+    mockDataListeners.delete(fn)
+  }
+}
+
+export const getMockDataVersion = () => mockDataVersion
 
 const nextId = (prefix: string) => `${prefix}${Date.now().toString(36)}${(db.seq++).toString(36)}`
 const now = () => new Date().toISOString()
@@ -390,11 +459,11 @@ function mockDeleteProject(projectId: string) {
 
 function mockTeamPosts(): TeamPost[] {
   const mine = new Set(db.projects.map((p) => p.id))
-  return TEAM_POSTS.filter((p) => p.members.length < p.size && !mine.has(p.id))
+  return db.teamPosts.filter((p) => p.members.length < p.size && !mine.has(p.id))
 }
 
 function mockRequestToJoin(postId: string): JoinRequest {
-  const post = TEAM_POSTS.find((p) => p.id === postId) ?? fail(404, 'not_found', 'No such team.')
+  const post = db.teamPosts.find((p) => p.id === postId) ?? fail(404, 'not_found', 'No such team.')
   if (db.projects.some((p) => p.id === postId)) fail(409, 'already_member', "You're already on this team.")
   if (post.members.length >= post.size) fail(409, 'team_full', `${post.project} is full.`)
   if (db.requests.some((r) => r.postId === postId && r.status === 'pending')) fail(409, 'already_requested', 'You already asked to join.')
@@ -519,7 +588,7 @@ function mockReview(studentId: string, body: NewReview): Review {
 
 function mockContact(studentId: string): Contact {
   requireSession()
-  const email = MOCK_EMAILS[studentId] ?? fail(404, 'not_found', 'No such student.')
+  const email = db.emails[studentId] ?? fail(404, 'not_found', 'No such student.')
   const shared = db.projects.filter((p) => p.memberIds.includes(db.me.id) && p.memberIds.includes(studentId))
   if (shared.length === 0) fail(403, 'contact_locked', 'Their email unlocks once you are on the same team.')
   return { studentId, email, sharedProjectIds: shared.map((p) => p.id) }

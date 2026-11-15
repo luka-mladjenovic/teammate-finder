@@ -21,12 +21,13 @@ export const IS_EMBED = (() => {
   }
 })()
 
-export function applyTheme(id: ThemeId) {
+/** persist=false shows a look without saving it (the study harness locks Classic for a session, then puts yours back). */
+export function applyTheme(id: ThemeId, persist = true) {
   const root = document.documentElement
   for (const t of THEMES) root.classList.remove(`theme-${t.id}`)
   if (id !== 'default') root.classList.add(`theme-${id}`)
   root.dataset.theme = id
-  if (IS_EMBED) return // previews must not overwrite the viewer's saved choice
+  if (IS_EMBED || !persist) return // previews must not overwrite the viewer's saved choice
   try {
     localStorage.setItem(KEY, id)
   } catch {

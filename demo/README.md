@@ -6,6 +6,7 @@
 - Everything runs on fictional mock data; reload to reset the demo.
 - Style picker: the "Style" button at the top right opens thumbnails of the three looks, Aurora (dark), Glass (light, crisp) and Soft (warm, playful), plus the original Classic. Or add `?theme=aurora`, `glass` or `soft` before the `#`. The choice is remembered.
 - `#/styles` shows the three looks live side by side as neutral options A/B/C, for collecting preference feedback.
+- `#/study` runs the Part 3 evaluation study (setup, two tasks, questionnaires, CSV results). See [`../docs/evaluation/facilitator-guide.md`](../docs/evaluation/facilitator-guide.md).
 - Aurora, Glass and Soft load one display font from Google Fonts; offline they fall back to the built-in font.
 - Easter eggs: ↑↑↓↓←→←→BA for retro mode; open `#/nope` and click the ghost for Deadline Dash.
 

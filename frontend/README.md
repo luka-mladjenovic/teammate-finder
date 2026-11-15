@@ -39,6 +39,8 @@ src/
                         SearchField, SignedOutPage, TopNav, StylePicker, ...
   pages/                one file per route (table below)
   fun/                  loading screen, Deadline Dash, Konami/retro theme, tilt, confetti
+  study/                the /study harness (docs/evaluation/plan.md section 8): scenarios (S1, S2), store (sessions in
+                        localStorage, swapping the mock data for a StackUp task), board task, study bar, questions, CSV
   styles/               tokens.css (theme), global.css, components.css, one CSS file per feature, themes/ (aurora, glass, soft)
 ```
 
@@ -58,7 +60,7 @@ The current project (the switcher in the top bar) drives Find teammates, compare
 | `/signin` | sign in with a UF email and a 6-digit code, then Find teammates |
 | `/profile/setup` | two-step profile form (drag-to-paint availability: Mon–Sun × 5 blocks with their hours; goal & pace; roles & skills; past work), draft save, preview. Step 1 stacks its cards in two columns; step 2 has an optional Username (shown as @handle) when the server supports usernames |
 | `/styles` | the three visual directions live side by side (neutral A/B/C labels) for preference feedback |
-| `/study` | placeholder (study mode comes next) |
+| `/study` | the Part 3 study harness (offline demo build only; `#/study` in the single file): setup, background questions, two timed tasks (a plain discussion-board thread, and StackUp itself, where Invite records the choice), confidence, SEQ and SUS (every question optional), final questions, a debrief page, results as a CSV row. Sessions stay in this browser (`stackup-study-v1`). How to run one: [`../docs/evaluation/facilitator-guide.md`](../docs/evaluation/facilitator-guide.md) |
 | any other path | 404 page; click the ghost to play Deadline Dash |
 
 With a real API (`VITE_API_URL`) and no session, `/find`, `/team`, `/people/:id` and `/profile/setup` show a sign-in prompt (`SignedOutPage`) instead of their content; a `401` mid-session switches to it with a "Your session ended" toast. The mock keeps its demo data after Sign out, so it never shows the prompt. While signed in, the app quietly re-reads the inbox and your projects every 30 s (only while the tab is visible) and when you come back to the tab, so join requests, invites and acceptances by other people show up without a reload.

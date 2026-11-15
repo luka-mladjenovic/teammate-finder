@@ -1,6 +1,7 @@
 import { AnimatePresence, MotionConfig, motion } from 'motion/react'
-import { useEffect } from 'react'
+import { useEffect, useSyncExternalStore } from 'react'
 import { BrowserRouter, HashRouter, Route, Routes, useLocation } from 'react-router-dom'
+import { getMockDataVersion, subscribeMockData } from './api'
 import { TopNav } from './components/TopNav'
 import { LoadingScreen } from './fun/LoadingScreen'
 import { toggleRetroTheme, useKonami } from './fun/useKonami'
@@ -10,12 +11,15 @@ import { Landing } from './pages/Landing'
 import { MyTeam } from './pages/MyTeam'
 import { NewProject } from './pages/NewProject'
 import { OpenTeams } from './pages/OpenTeams'
-import { NotFound, Study } from './pages/Placeholders'
+import { NotFound } from './pages/Placeholders'
 import { ProfileDetail } from './pages/ProfileDetail'
 import { ProfileSetup } from './pages/ProfileSetup'
 import { SignUp } from './pages/SignUp'
 import { StyleCompare } from './pages/StyleCompare'
 import { AppDataProvider, useAppData } from './state/AppData'
+import { StudyChrome } from './study/StudyBar'
+import { StudyRoutes } from './study/StudyPages'
+import { isStudyPath } from './study/store'
 
 /** Pages that never wait for data. */
 const NO_WAIT = new Set(['/', '/signup', '/signin'])
@@ -24,6 +28,8 @@ function Shell() {
   const { loading, notice, notify } = useAppData()
   const location = useLocation()
   const { pathname } = location
+  // Study pages (/study) are standalone: no top bar, and they never wait for app data.
+  const study = isStudyPath(pathname)
 
   useKonami(() => notify(toggleRetroTheme() ? 'Retro mode on. Welcome back to 1998.' : 'Retro mode off.'))
 
@@ -33,9 +39,11 @@ function Shell() {
 
   return (
     <>
-      <TopNav />
+      {/* The study harness: Classic look on /study, and the study bar over the app during a StackUp task. */}
+      <StudyChrome />
+      {!study && <TopNav />}
       <main>
-        <LoadingScreen done={!loading || NO_WAIT.has(pathname)}>
+        <LoadingScreen done={!loading || NO_WAIT.has(pathname) || study}>
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={pathname}
@@ -55,7 +63,7 @@ function Shell() {
             <Route path="/signup" element={<SignUp mode="signup" />} />
             <Route path="/signin" element={<SignUp mode="signin" />} />
             <Route path="/styles" element={<StyleCompare />} />
-            <Route path="/study/*" element={<Study />} />
+            <Route path="/study/*" element={<StudyRoutes />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
             </motion.div>
@@ -86,9 +94,12 @@ function Shell() {
 const Router = import.meta.env.MODE === 'singlefile' ? HashRouter : BrowserRouter
 
 export default function App() {
+  // Goes up only when the study harness swaps the mock data (api loadStudyData). As AppData's key it remounts the
+  // whole app on the new data, so nothing from the demo shows in a study task, or from a task in the demo.
+  const dataVersion = useSyncExternalStore(subscribeMockData, getMockDataVersion)
   return (
     <MotionConfig reducedMotion="user">
-      <AppDataProvider>
+      <AppDataProvider key={dataVersion}>
         <Router>
           <Shell />
         </Router>

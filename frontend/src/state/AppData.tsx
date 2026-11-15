@@ -245,6 +245,16 @@ interface Loaded {
   requests: JoinRequest[]
 }
 
+/**
+ * Study harness (/study): while a StackUp task runs, every Invite (card, profile, compare tray) goes to this handler
+ * instead of the server. It asks the participant to confirm, records the choice and resolves false, so nothing is
+ * invited and the callers show no toast. Null the rest of the time (src/study/StudyBar.tsx sets it).
+ */
+let inviteInterceptor: ((studentId: string) => Promise<boolean>) | null = null
+export function interceptInvites(fn: typeof inviteInterceptor) {
+  inviteInterceptor = fn
+}
+
 const loadRest = async (): Promise<Loaded> => {
   const [projects, students, teamPosts, requests] = await Promise.all([api.myProjects(), api.students(), api.teamPosts(), api.myRequests()])
   return { projects, students, teamPosts, requests }
@@ -433,6 +443,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       const t = team
       const pending = invites.some((i) => i.status === 'pending' && i.projectId === t?.id && i.studentId === studentId)
       if (!t || t.memberIds.includes(studentId) || isFull(t) || pending) return false
+      if (inviteInterceptor) return inviteInterceptor(studentId)
       // A student leaves the compare list only once they join. A pending invite (real API) keeps them in the
       // tray, whose button turns into "Invite sent" and keeps focus, like the card and the profile.
       const joined = () => {

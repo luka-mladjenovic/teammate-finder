@@ -2,20 +2,6 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { DeadlineDashDialog } from '../fun/DeadlineDash'
 
-function Soon({ title, note }: { title: string; note: string }) {
-  return (
-    <div className="page empty">
-      <h2>{title}</h2>
-      <p className="muted small">{note}</p>
-      <Link to="/find" className="btn btn-secondary btn-sm">Go to Find teammates</Link>
-    </div>
-  )
-}
-
-export const Study = () => (
-  <Soon title="Study mode" note="Task runner for the evaluation: scenario, timer, baseline discussion board, CSV export. Coming next." />
-)
-
 export function NotFound() {
   const [dash, setDash] = useState(false)
   return (

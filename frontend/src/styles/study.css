@@ -1,0 +1,264 @@
+/* Study harness (/study, src/study). Imported by src/study/parts.tsx, so it loads BEFORE global.css and the themes:
+   rules that tweak a shared class (.card, .btn, .setup-dialog) use two classes so they still win. The study pages and
+   the StackUp task always show the Classic light look (StudyBar.tsx), so design tokens are enough there. The study's
+   own pages and the study bar redefine a few of them for a plain look that is neither StackUp's nor the board's
+   (system font, grey accent, smaller radii), so they don't hint which tool the team built. The board imitates a
+   plain LMS discussion page, so it has its own neutral tokens (--board-*). */
+
+/* ---------- Study pages (setup, questions, results) ---------- */
+.study-page,
+.study-bar {
+  --color-primary: #3b4148;
+  --color-primary-active: #22272c;
+  --color-primary-soft: #eceef0;
+  --color-primary-disabled: #b9bec4;
+  --color-on-primary: #ffffff;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: var(--font-sans);
+}
+.page.study-page { max-width: 760px; }
+.study-head { display: flex; flex-direction: column; gap: 6px; margin-bottom: var(--space-lg); }
+.study-head p { margin: 0; }
+.study-page h1:focus,
+.board-title:focus { outline: none; }
+.study-page code { font-size: 0.92em; }
+
+.card.study-card { display: flex; flex-direction: column; gap: 20px; min-width: 0; margin-bottom: var(--space-lg); }
+.study-card h2 { font-size: 18px; }
+.study-card-head { display: flex; flex-direction: column; gap: 4px; }
+.study-card-head p { margin: 0; }
+.study-form { display: flex; flex-direction: column; gap: 20px; }
+form.study-form > .card.study-card { margin-bottom: 0; }
+.study-actions { flex-wrap: wrap; }
+.study-group .field-help { margin: -4px 0 8px; }
+.study-options { display: flex; flex-wrap: wrap; gap: 4px 24px; }
+.study-options .check { min-height: 36px; }
+.setup-input.study-textarea { height: auto; min-height: 96px; padding: 10px 12px; line-height: 1.45; resize: vertical; }
+
+/* The task card: the scenario's lines, the four needs as a list, then how choosing works here. */
+.study-card-title { font-size: 17px; }
+.study-card-text { display: flex; flex-direction: column; gap: 10px; font-size: 15px; color: var(--color-ink); }
+.study-card-text p { margin: 0; text-wrap: pretty; }
+.study-needs { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.study-needs li { overflow-wrap: anywhere; }
+.study-card-text .study-how { padding-top: 10px; border-top: 1px solid var(--color-hairline-soft); color: var(--color-body); }
+
+/* Facilitator-only "Skip": small and quiet, so participants don't take it for part of the task. */
+.study-skip { align-self: flex-start; min-height: 32px; padding: 4px 6px; border: 0; background: none; color: var(--color-muted); font-size: 12px; text-decoration: underline; text-underline-offset: 3px; }
+.study-skip:hover { color: var(--color-ink); }
+
+/* ---------- Likert items: a row of numbered radios, end labels underneath ---------- */
+.likert { margin: 0; padding: 0; border: 0; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.study-card .likert-item + .likert-item { padding-top: 18px; border-top: 1px solid var(--color-hairline-soft); }
+.likert-q { padding: 0; margin-bottom: 2px; font-size: 15px; font-weight: 600; color: var(--color-ink); text-wrap: pretty; }
+.likert-opts { display: grid; gap: 6px; max-width: 520px; }
+.likert-opt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-height: 56px;
+  padding: 8px 0;
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-sm);
+  background: var(--color-canvas);
+  cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
+}
+.likert-opt:hover { border-color: var(--color-ink); }
+.likert-opt:has(input:checked) { border-color: var(--color-primary); background: var(--color-primary-soft); box-shadow: 0 0 0 1px var(--color-primary); }
+.likert-opt:has(input:focus-visible) { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.likert-opt input { width: 18px; height: 18px; margin: 0; accent-color: var(--color-primary); cursor: pointer; }
+.likert-opt input:focus-visible { outline: none; }
+.likert-num { font-size: 14px; font-weight: 600; color: var(--color-ink); font-variant-numeric: tabular-nums; }
+.likert-ends { display: flex; justify-content: space-between; gap: 12px; max-width: 520px; font-size: 12px; color: var(--color-muted); }
+.likert-ends span:last-child { text-align: right; }
+/* "Prefer not to answer": under the scale, plain and smaller, so it reads as a way out rather than a point on it. */
+.check.likert-decline { align-self: flex-start; min-height: 32px; font-size: 13px; color: var(--color-body); }
+
+/* ---------- Debrief (read with the participant) ---------- */
+.card.study-debrief-number { gap: 4px; align-items: flex-start; }
+.study-debrief-number .field-label { margin: 0; }
+.study-pid { margin: 0; font-size: 56px; font-weight: 700; line-height: 1.1; letter-spacing: 0.04em; color: var(--color-ink); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.study-debrief p { margin: 0; text-wrap: pretty; }
+.study-debrief-email { overflow-wrap: anywhere; }
+
+/* ---------- Saved sessions and results ---------- */
+.study-saved,
+.study-facilitator { display: flex; flex-direction: column; gap: 12px; margin-top: var(--space-xl); }
+.study-facilitator p { margin: 0; }
+.study-saved h2,
+.study-facilitator h2 { font-size: 18px; }
+/* Relative, so the rows' .sr-only text (absolute) stays inside the scroll box instead of widening the page. */
+.study-table-wrap { position: relative; overflow-x: auto; margin-bottom: var(--space-lg); }
+.study-saved .study-table-wrap { margin-bottom: 0; }
+.study-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.study-table th,
+.study-table td { padding: 8px 10px; border-bottom: 1px solid var(--color-hairline-soft); text-align: left; vertical-align: top; }
+.study-table thead th { font-size: 12px; font-weight: 700; color: var(--color-muted); white-space: nowrap; }
+.study-table tbody th { font-weight: 600; color: var(--color-ink); }
+.study-row-actions { white-space: nowrap; }
+.study-row-actions .study-skip { margin-left: 8px; font-size: 13px; }
+.study-facts { margin: 0 0 var(--space-lg); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 24px; }
+.study-facts dt { font-size: 12px; color: var(--color-muted); }
+.study-facts dd { margin: 0; font-size: 14px; color: var(--color-ink); overflow-wrap: anywhere; white-space: pre-line; }
+.study-export .btn { flex: none; }
+.study-results .field-label { margin: 0; }
+.study-csv { margin: 0; max-height: 160px; overflow: auto; padding: 10px 12px; border-radius: var(--radius-sm); background: var(--color-surface-soft); font-size: 12px; line-height: 1.5; white-space: pre-wrap; word-break: break-all; }
+
+@media (max-width: 640px) {
+  .study-facts { grid-template-columns: minmax(0, 1fr); }
+  .likert-opts { gap: 4px; }
+}
+
+/* ---------- The study bar over the app during a StackUp task (StudyBar.tsx) ---------- */
+/* The app keeps its layout and moves down by the bar's height (set on <html> as --study-bar-h); the Style button goes.
+   At 1000 px and wider the task card is docked on the right, like the board's, and the app makes room for it
+   (--study-side-w); narrower, the card sits in the bar and counts in its height. */
+html[data-study='task'] { --study-side-w: 0px; }
+html[data-study='task'] body { padding-top: var(--study-bar-h, 44px); padding-right: var(--study-side-w); }
+html[data-study='task'] .topnav { top: var(--study-bar-h, 44px); }
+html[data-study='task'] .setup-toast-region { top: calc(88px + var(--study-bar-h, 44px)); right: var(--study-side-w); }
+html[data-study='task'] .tray { right: calc(16px + var(--study-side-w)); }
+html[data-study='task'] .style-trigger { display: none; }
+
+.study-bar { position: fixed; top: 0; left: 0; right: 0; z-index: 45; background: var(--color-surface-strong); border-bottom: 1px solid var(--color-hairline); color: var(--color-ink); font-size: 14px; }
+.study-bar-inner { max-width: var(--page-max); min-height: 44px; margin: 0 auto; padding: 4px var(--space-lg); display: flex; align-items: center; gap: 12px; }
+.study-bar-step { font-weight: 700; white-space: nowrap; }
+.study-bar .study-skip { align-self: center; }
+.study-bar-nudge { padding: 8px 16px; background: var(--color-warn-soft); border-top: 1px solid var(--color-hairline); text-align: center; font-weight: 700; }
+/* Empty: takes no space but stays a live region, so the nudge is announced when it appears. */
+.study-bar-nudge:empty,
+.board-nudge:empty { position: absolute; width: 1px; height: 1px; padding: 0; border: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+/* The task card. Narrow: inside the bar under its row, scrolling on its own so the app keeps most of the screen. */
+.study-bar-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 40dvh;
+  overflow: auto;
+  padding: 16px var(--space-lg);
+  border-top: 1px solid var(--color-hairline);
+  background: var(--color-canvas);
+}
+.study-bar-panel[hidden] { display: none; }
+.study-bar-panel .study-card-text { font-size: 14px; }
+
+@media (max-width: 640px) {
+  .study-bar-inner { padding: 4px 16px; }
+  .study-bar-panel { padding: 12px 16px; }
+}
+/* Wide: docked on the right under the bar, always open (like the board's side panel), the full height of the window. */
+@media (min-width: 1000px) {
+  html[data-study='task'] { --study-side-w: 340px; }
+  .study-bar-panel,
+  .study-bar-panel[hidden] {
+    display: flex;
+    position: fixed;
+    top: var(--study-bar-h, 44px);
+    right: 0;
+    bottom: 0;
+    width: var(--study-side-w);
+    max-height: none;
+    padding: 20px;
+    border-top: 0;
+    border-left: 1px solid var(--color-hairline);
+  }
+  .study-bar .study-bar-toggle { display: none; }
+}
+/* The top bar's steps (account.css) are set for the whole window. With the card docked the app is 340 px narrower,
+   so the same steps come 340 px sooner: tighter gaps, then no project name, no brand text, then the Menu. */
+@media (min-width: 1000px) and (max-width: 1620px) {
+  html[data-study='task'] .topnav-inner { gap: 20px; }
+}
+@media (min-width: 1000px) and (max-width: 1440px) {
+  html[data-study='task'] .topnav-inner { gap: 16px; }
+  html[data-study='task'] .topnav .ps-name { display: none; }
+  html[data-study='task'] .topnav .ps-new-label { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+  html[data-study='task'] .topnav .ps-new { padding: 8px; }
+}
+@media (min-width: 1000px) and (max-width: 1340px) {
+  html[data-study='task'] .topnav-inner { gap: 12px; }
+  html[data-study='task'] .topnav .brand-text { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+  html[data-study='task'] .topnav .brand { padding: 10px; margin: -10px; border-radius: var(--radius-sm); }
+  html[data-study='task'] .topnav-actions { gap: 8px; }
+}
+@media (min-width: 1000px) and (max-width: 1160px) {
+  html[data-study='task'] .topnav .topnav-links { display: none; }
+  html[data-study='task'] .topnav-menu { display: block; }
+}
+
+/* ---------- Board task (BoardTask.tsx): a plain course discussion thread ---------- */
+.board-page {
+  --board-ink: #2d3b45;
+  --board-muted: #5f6b73;
+  --board-line: #c7cdd1;
+  --board-line-soft: #e5e8ea;
+  --board-soft: #f5f5f5;
+  --board-link: #0770a3;
+  --board-font: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  min-height: 100vh;
+  background: #ffffff;
+  color: var(--board-ink);
+  font-family: var(--board-font);
+  font-size: 15px;
+  line-height: 1.5;
+}
+.board-page h1,
+.board-page h2 { color: var(--board-ink); font-family: var(--board-font); }
+.board-page :focus-visible { outline-color: var(--board-link); }
+.board-nudge { position: sticky; top: 0; z-index: 5; padding: 10px 16px; background: #fff4e5; border-bottom: 1px solid #f0c98a; text-align: center; font-weight: 700; }
+.board-crumbs { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px var(--space-lg); border-bottom: 1px solid var(--board-line-soft); color: var(--board-muted); font-size: 14px; }
+
+.board-layout { max-width: 1120px; margin: 0 auto; padding: var(--space-lg); display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-lg); align-items: start; }
+.board-side { display: flex; flex-direction: column; gap: 12px; padding: 16px; border: 1px solid var(--board-line); border-radius: 4px; background: #ffffff; }
+.board-side-head { display: flex; align-items: center; gap: 12px; }
+.board-side-head h2 { flex: 1; font-size: 17px; }
+.board-side-body { display: flex; flex-direction: column; gap: 12px; }
+.board-side .study-card-text { color: var(--board-ink); font-size: 14px; }
+.board-side .study-card-text .study-how { border-top-color: var(--board-line-soft); color: var(--board-ink); }
+.board-side .study-skip { color: var(--board-muted); }
+.board-side.is-collapsed .board-side-body { display: none; }
+@media (min-width: 1000px) {
+  .board-layout { grid-template-columns: minmax(0, 1fr) 320px; }
+  .board-thread { grid-column: 1; grid-row: 1; }
+  .board-side { grid-column: 2; grid-row: 1; position: sticky; top: 16px; max-height: calc(100dvh - 32px); overflow: auto; }
+  /* Always open beside the thread. */
+  .board-side-toggle { display: none; }
+  .board-side.is-collapsed .board-side-body { display: flex; }
+}
+
+.board-title { font-size: 24px; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
+.board-op { display: flex; align-items: center; gap: 12px; margin: 16px 0 10px; }
+.board-avatar { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: var(--board-line-soft); color: var(--board-ink); font-size: 14px; font-weight: 700; }
+.board-who { display: flex; flex-direction: column; min-width: 0; }
+.board-who strong { font-size: 15px; }
+.board-date { font-size: 13px; color: var(--board-muted); }
+.board-intro { margin: 0; overflow-wrap: anywhere; }
+.board-count { margin: 28px 0 0; padding-bottom: 10px; border-bottom: 1px solid var(--board-line); font-size: 16px; font-weight: 700; }
+.board-replies { list-style: none; margin: 0; padding: 0; }
+.board-replies > li { border-bottom: 1px solid var(--board-line-soft); }
+.board-post { padding: 16px 0; }
+.board-post-head { display: flex; align-items: center; gap: 12px; }
+.board-body { margin: 10px 0 0 52px; white-space: pre-line; overflow-wrap: anywhere; }
+.board-post-foot { margin: 12px 0 0 52px; }
+@media (max-width: 600px) {
+  .board-layout { padding: 16px; }
+  .board-crumbs { padding: 12px 16px; }
+  .board-body,
+  .board-post-foot { margin-left: 0; }
+}
+
+.board-btn { min-height: 36px; padding: 6px 16px; border: 1px solid var(--board-line); border-radius: 4px; background: var(--board-soft); color: var(--board-ink); font: inherit; font-size: 14px; }
+.board-btn:hover { background: var(--board-line-soft); }
+
+/* The confirm on the board looks like the board, not like StackUp. */
+.setup-dialog.board-dialog { border-radius: 6px; color: var(--board-ink); font-family: var(--board-font); }
+.board-dialog h2 { font-family: var(--board-font); font-weight: 600; }
+.board-dialog .btn.btn-secondary,
+.board-dialog .btn.btn-primary { border-radius: 4px; font-weight: 400; }
+.board-dialog .btn.btn-secondary { background: var(--board-soft); border-color: var(--board-line); color: var(--board-ink); }
+.board-dialog .btn.btn-primary { background: var(--board-link); color: #ffffff; }
+.board-dialog .btn.btn-primary:hover { background: #055c86; }
