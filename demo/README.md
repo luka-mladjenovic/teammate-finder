@@ -2,6 +2,8 @@
 
 `teammate-finder-demo.html` is the whole prototype in one file (JS, CSS and fonts inlined). Download it and double-click to open in Chrome, Edge, Firefox or Safari. No install, no server, works offline.
 
+`StackUp_Study.html` is the same file for the Part 3 study: opened with no page in the address, it starts on the study setup page (`#/study`), so facilitators can just double-click it. Rebuild it from the demo file whenever the demo changes (it only adds one line in `<head>` and the title "StackUp Study").
+
 - Pages use hash links, e.g. `teammate-finder-demo.html#/find`.
 - Everything runs on fictional mock data; reload to reset the demo.
 - Style picker: the "Style" button at the top right opens thumbnails of the three looks, Aurora (dark), Glass (light, crisp) and Soft (warm, playful), plus the original Classic. Or add `?theme=aurora`, `glass` or `soft` before the `#`. The choice is remembered.
