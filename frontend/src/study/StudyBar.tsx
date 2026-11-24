@@ -1,13 +1,15 @@
 // The study harness inside the app (Shell renders <StudyChrome /> on every page):
 // - on /study pages and during a StackUp task the look is locked to Classic, light, Electric, without saving it;
 //   leaving the study puts the saved look back;
-// - while a session is in progress and no StackUp task runs, any app page sends the participant back to /study/run
-//   (the browser's Back button after a StackUp task would otherwise land in the normal demo);
+// - while a session is in progress and no StackUp task runs, any app page sends the participant back to the session's
+//   steps, /study/run or (self-guided) /study/self/run (the browser's Back button after a StackUp task would otherwise
+//   land in the normal demo);
 // - during a StackUp task a slim fixed bar sits above the app ("Task 1 of 2", Skip) with the task card open, like
 //   the board's: docked on the right at 1000 px and wider, in the bar (Hide task / Show task) on narrower screens.
+//   A self-guided session has no Skip: no facilitator is there to use it.
 //   The Style button is hidden, and every Invite records the participant's choice (after a one-step confirm)
 //   instead of inviting. When the 7-minute limit ends the task (store.ts) the bar goes and, as above, the page
-//   returns to /study/run.
+//   returns to the session's steps.
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { USING_MOCK } from '../api'
@@ -15,9 +17,9 @@ import { applyAccent, applyMode, applyTheme, initialAccent, initialMode, initial
 import { interceptInvites } from '../state/AppData'
 import { NUDGE_TEXT, useNudge } from './hooks'
 import { StudyConfirm, TaskCardBody } from './parts'
-import { SKIP_TEXT } from './questions'
+import { CHOOSE_TEXT, SKIP_TEXT } from './questions'
 import { SCENARIOS } from './scenarios'
-import { appTaskIndex, endTask, isStudyPath, useStudy, type Session } from './store'
+import { appTaskIndex, endTask, isStudyPath, runPath, useStudy, type Session } from './store'
 
 /** True while this module has the Classic look on. */
 let locked = false
@@ -46,12 +48,13 @@ export function StudyChrome() {
   const inApp = task !== undefined && !onStudyPage
   // In a session but outside the study, with no StackUp task running: e.g. Back from the questions after one.
   const strayed = USING_MOCK && current !== null && task === undefined && !onStudyPage
+  const steps = runPath(current)
 
   useLayoutEffect(() => lockLook(onStudyPage || task !== undefined), [onStudyPage, task])
 
   useEffect(() => {
-    if (strayed) navigate('/study/run', { replace: true })
-  }, [strayed, navigate])
+    if (strayed) navigate(steps, { replace: true })
+  }, [strayed, steps, navigate])
 
   // Marks <html> so study.css hides the Style button and makes room for the bar and the task card.
   useLayoutEffect(() => {
@@ -102,7 +105,7 @@ function StudyBar({ session, i }: { session: Session; i: 0 | 1 }) {
   const finish = (choiceId: string | null) => {
     endTask(i, choiceId)
     // Replace, so Back from the questions doesn't return to the task's last app page.
-    navigate('/study/run', { replace: true })
+    navigate(runPath(session), { replace: true })
   }
 
   const chosen = asking ? scenario.candidates.find((c) => c.id === asking.id) : undefined
@@ -121,9 +124,11 @@ function StudyBar({ session, i }: { session: Session; i: 0 | 1 }) {
           {showTask ? 'Hide task' : 'Show task'}
         </button>
         <span className="spacer" />
-        <button type="button" className="study-skip" onClick={() => setSkipping(true)}>
-          Skip (facilitator)
-        </button>
+        {session.mode !== 'self' && (
+          <button type="button" className="study-skip" onClick={() => setSkipping(true)}>
+            Skip (facilitator)
+          </button>
+        )}
       </div>
       <div className="study-bar-nudge" role="status" aria-live="polite">
         {nudged ? NUDGE_TEXT : ''}
@@ -148,7 +153,7 @@ function StudyBar({ session, i }: { session: Session; i: 0 | 1 }) {
           finish(asking.id)
         }}
       >
-        <p>This is your choice for this task.</p>
+        <p>{CHOOSE_TEXT}</p>
       </StudyConfirm>
 
       <StudyConfirm

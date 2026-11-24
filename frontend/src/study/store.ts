@@ -37,7 +37,13 @@ export function normalizePid(raw: string): string {
   return m ? `P0${m[1]}` : id
 }
 
-export type StudyMode = 'in_person' | 'remote'
+/** The IDs a self-guided participant can start with, after normalizePid: P03, PILOT1, TEST2. */
+export const isSelfPid = (id: string) => /^(P|PILOT|TEST)\d+$/.test(id)
+
+/** in_person: a facilitator runs the session on their laptop (setup at /study). self: the participant does it alone on
+ *  their own computer (start page at /study/self) and sends the result line to the person who sent them the study.
+ *  remote (over Zoom) is no longer offered at setup; it stays so sessions saved with it still load and show. */
+export type StudyMode = 'in_person' | 'remote' | 'self'
 // No "None": doing at least one course group project is an inclusion criterion, confirmed at setup.
 export type ProjectCount = '1–2' | '3–5' | '6+'
 export type FindMethod = 'canvas' | 'group_chat' | 'friends' | 'instructor' | 'other'
@@ -87,6 +93,8 @@ export const STEPS = [
   'final',
   'notes',
   'debrief',
+  // Self-guided only: no notes step (final → debrief), and after the debrief the page for sending the result line.
+  'send',
   'done',
 ] as const
 export type Step = (typeof STEPS)[number]
@@ -99,7 +107,8 @@ export interface Session {
   /** When setup was saved, ISO. */
   createdAt: string
   facilitator: string
-  /** Shown to the participant on the debrief page only; dropped when the session is saved, never exported. */
+  /** Shown to the participant on the debrief page only (self-guided: the email of the team member they chose); dropped
+   *  when the session is saved, never exported. */
   facilitatorEmail?: string
   mode: StudyMode
   /** Null: the participant preferred not to say. */
@@ -186,6 +195,10 @@ export const storageWorks = () => saving
 
 /** The harness's own pages (no app top bar). */
 export const isStudyPath = (pathname: string) => pathname === '/study' || pathname.startsWith('/study/')
+
+/** Where the session's steps show: a self-guided one has its own address, so with nothing in progress (e.g. after a
+ *  reload once it ended) the participant lands on the start page, never on the facilitator's setup. */
+export const runPath = (s: Session | null) => (s?.mode === 'self' ? '/study/self/run' : '/study/run')
 
 /** 0 or 1 for a task step (card, task, time's up, post), else undefined. */
 export function taskIndex(step: Step): 0 | 1 | undefined {
@@ -284,6 +297,7 @@ const newTask = (p: TaskPlan): TaskRecord => ({ ...p, nudged: false, sus: Array.
 export function startSession(setup: SessionSetup) {
   lastDone = null
   lastDeleted = null
+  selfEnd = null
   const [a, b] = SEQUENCES[setup.sequence]
   const session: Session = {
     ...setup,
@@ -371,10 +385,37 @@ export function discardCurrent() {
 }
 
 /** "Delete this session now" at the debrief: like discardCurrent, but what follows is a neutral page, not setup, whose
- *  list of other sessions the participant (or the shared Zoom screen) would still see. */
+ *  list of other sessions the participant would still see. */
 export function deleteAtDebrief() {
   lastDeleted = state.current?.pid ?? null
   discardCurrent()
+}
+
+/** How the self-guided session ended in this tab, the initials of the team member who sent it (the deleted page
+ *  names them) and the participant ID (the thank-you page names the results file): /study/self/run then shows the
+ *  matching page (see Run). */
+export interface SelfEnd {
+  how: 'deleted' | 'done'
+  by: string
+  pid: string
+}
+let selfEnd: SelfEnd | null = null
+export const lastSelfEnd = () => selfEnd
+
+/**
+ * Ends a self-guided session: "Delete my answers" at the debrief ('deleted') or "Done: remove my answers from this
+ * browser" on the send page ('done'). Either way nothing is saved: the session leaves this browser, and with no saved
+ * sessions (the participant's own computer) the study's storage key goes too.
+ */
+export function endSelfSession(how: SelfEnd['how']) {
+  selfEnd = { how, by: state.current?.facilitator ?? '', pid: state.current?.pid ?? '' }
+  discardCurrent()
+  if (state.sessions.length > 0) return
+  try {
+    localStorage.removeItem(KEY)
+  } catch {
+    /* blocked: nothing was stored */
+  }
 }
 
 /** Deletes one saved session (e.g. a participant withdrew after finishing). */

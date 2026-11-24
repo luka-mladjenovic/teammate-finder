@@ -6,7 +6,7 @@ import { useId, useState } from 'react'
 import { initials } from '../components/Avatar'
 import { NUDGE_TEXT, useNudge, useStepFocus, useTitle } from './hooks'
 import { StudyConfirm, TaskCardBody } from './parts'
-import { SKIP_TEXT } from './questions'
+import { CHOOSE_TEXT, SKIP_TEXT } from './questions'
 import { SCENARIOS } from './scenarios'
 import { endTask, type Session } from './store'
 
@@ -65,9 +65,12 @@ export function BoardTask({ session, i }: { session: Session; i: 0 | 1 }) {
           </div>
           <div id={panelId} className="board-side-body">
             <TaskCardBody scenario={scenario} ui="board" />
-            <button type="button" className="study-skip" onClick={() => setSkipping(true)}>
-              Skip (facilitator)
-            </button>
+            {/* Self-guided: no facilitator, so no Skip. */}
+            {session.mode !== 'self' && (
+              <button type="button" className="study-skip" onClick={() => setSkipping(true)}>
+                Skip (facilitator)
+              </button>
+            )}
           </div>
         </aside>
 
@@ -125,7 +128,7 @@ export function BoardTask({ session, i }: { session: Session; i: 0 | 1 }) {
           if (id) endTask(i, id)
         }}
       >
-        <p>This is your choice for this task.</p>
+        <p>{CHOOSE_TEXT}</p>
       </StudyConfirm>
 
       <StudyConfirm

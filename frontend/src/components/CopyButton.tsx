@@ -10,12 +10,19 @@ interface Props {
   selectTarget?: () => HTMLElement | null
   /** Announced after a successful copy. */
   copiedMessage?: string
+  /** The button's text for 2 s after a copy. */
+  copiedLabel?: string
   className?: string
 }
 
-/** Selects an element's text so the user can copy it by hand. */
+/** Selects an element's text so the user can copy it by hand (a text box: its whole value). */
 export function selectText(el: HTMLElement | null) {
   if (!el) return
+  if (el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement) {
+    el.focus()
+    el.select()
+    return
+  }
   const range = document.createRange()
   range.selectNodeContents(el)
   const sel = window.getSelection()
@@ -24,10 +31,19 @@ export function selectText(el: HTMLElement | null) {
 }
 
 /**
- * Copies text with the clipboard API (inside the click, as browsers require). Shows "Copied ✓" for 2 s at the same width.
+ * Copies text with the clipboard API (inside the click, as browsers require). Shows "Copied ✓" (or `copiedLabel`) for 2 s
+ * at the same width.
  * Where the clipboard is blocked (permissions, insecure context) it selects the text instead.
  */
-export function CopyButton({ text, label = 'Copy email', srSuffix, selectTarget, copiedMessage = 'Email address copied.', className = 'btn btn-secondary btn-sm' }: Props) {
+export function CopyButton({
+  text,
+  label = 'Copy email',
+  srSuffix,
+  selectTarget,
+  copiedMessage = 'Email address copied.',
+  copiedLabel = 'Copied ✓',
+  className = 'btn btn-secondary btn-sm',
+}: Props) {
   const [copied, setCopied] = useState(false)
   const [status, setStatus] = useState({ text: '', n: 0 })
   const timer = useRef<number | undefined>(undefined)
@@ -68,7 +84,7 @@ export function CopyButton({ text, label = 'Copy email', srSuffix, selectTarget,
             {label}
           </span>
           <span className="copy-face" data-on={copied}>
-            Copied ✓
+            {copiedLabel}
           </span>
         </span>
         {srSuffix && <span className="sr-only">{srSuffix}</span>}

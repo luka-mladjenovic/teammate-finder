@@ -85,6 +85,34 @@ form.study-form > .card.study-card { margin-bottom: 0; }
 .study-debrief p { margin: 0; text-wrap: pretty; }
 .study-debrief-email { overflow-wrap: anywhere; }
 
+/* ---------- Self-guided: start page and sending the result line ---------- */
+.study-actions .study-start-help { margin: 0; align-self: center; }
+.study-send p { margin: 0; text-wrap: pretty; }
+.setup-input.study-line { min-height: 0; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; line-height: 1.5; word-break: break-all; resize: none; }
+.study-send-done { display: flex; flex-direction: column; gap: 8px; margin-top: var(--space-xl); }
+.study-send-done p { margin: 0; }
+/* Beside a button: "Or download it as a file …", and the blank-questions warning on Next (empty until shown). */
+.study-actions .study-inline-note { margin: 0; align-self: center; }
+.study-blank-warn { font-size: 14px; font-weight: 600; color: var(--color-warn); text-wrap: pretty; }
+/* While that warning shows, each unanswered question (ChoiceGroup, Likert): a left border in the warning's colour, in
+   the card's padding so nothing moves, and a small "Not answered" tag after its legend. Two classes, to beat the
+   fieldset resets (.setup-fieldset in setup.css loads after this file). */
+.study-group.is-missing,
+.likert.is-missing { margin-left: -15px; padding-left: 12px; border-left: 3px solid var(--color-warn); }
+.study-missing-tag {
+  display: inline-block;
+  margin-left: 2px;
+  padding: 1px 7px;
+  border-radius: var(--radius-sm);
+  background: var(--color-warn-soft);
+  color: var(--color-warn);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+  vertical-align: 1px;
+  white-space: nowrap;
+}
+
 /* ---------- Saved sessions and results ---------- */
 .study-saved,
 .study-facilitator { display: flex; flex-direction: column; gap: 12px; margin-top: var(--space-xl); }
@@ -106,6 +134,10 @@ form.study-form > .card.study-card { margin-bottom: 0; }
 .study-facts dd { margin: 0; font-size: 14px; color: var(--color-ink); overflow-wrap: anywhere; white-space: pre-line; }
 .study-export .btn { flex: none; }
 .study-results .field-label { margin: 0; }
+/* Results: "Other formats" under the result line. */
+.study-other summary { width: fit-content; font-size: 13px; color: var(--color-muted); cursor: pointer; }
+.study-other > :not(summary) { margin-top: 12px; }
+.study-other > p { margin-bottom: 0; }
 .study-csv { margin: 0; max-height: 160px; overflow: auto; padding: 10px 12px; border-radius: var(--radius-sm); background: var(--color-surface-soft); font-size: 12px; line-height: 1.5; white-space: pre-wrap; word-break: break-all; }
 
 @media (max-width: 640px) {

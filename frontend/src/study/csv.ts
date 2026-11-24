@@ -98,6 +98,12 @@ export function localDateTime(iso: string): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
+const READABLE = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
+
+/** "Nov 23, 2026, 11:09 PM", in this computer's time zone: for the participant to read (the CSV keeps localDateTime).
+ *  Plain spaces only (some browsers put a narrow no-break space before "PM"), so it pastes cleanly into a message. */
+export const readableDateTime = (iso: string) => READABLE.format(new Date(iso)).replace(/[  ]/g, ' ')
+
 function taskValues(t: TaskRecord): string[] {
   const o = taskOutcome(t)
   // Only an ended task has these outcomes.
@@ -154,9 +160,33 @@ export const csvFile = (sessions: readonly Session[]) => [CSV_COLUMNS, ...sessio
 /** Tab-separated, line breaks and tabs turned into spaces: pastes straight into spreadsheet columns. */
 export const tsvLine = (values: readonly string[]) => values.map((v) => v.replace(/[\t\r\n]+/g, ' ')).join('\t')
 
-/** Saves `text` as a .csv file (with a BOM so Excel reads accents like "Peña" right). */
-export function downloadCsv(filename: string, text: string) {
-  const url = URL.createObjectURL(new Blob(['﻿', text], { type: 'text/csv;charset=utf-8' }))
+/** The result line's delimiter. Not "|": Discord turns "||" (two empty values in a row) into spoiler markup. */
+export const RESULT_SEPARATOR = '^'
+
+/**
+ * A run of whitespace with at least one character in it that isn't a plain space. Whitespace is JavaScript's \s (tabs,
+ * CR/LF, \v, \f, U+2028, U+2029, no-break and other Unicode spaces) plus U+0085 (next line), which \s leaves out.
+ */
+const ODD_SPACE_RUN = /[\s\u0085]*(?:[^\S ]|\u0085)[\s\u0085]*/g
+
+/**
+ * One value of the result line: "^" becomes a space, and any run of whitespace with something other than a plain space
+ * in it (a tab, line break, no-break space, …) becomes one space, so the line stays one line with plain spaces only.
+ * Runs of plain spaces are kept as typed.
+ */
+const resultCell = (v: string) => v.replace(/\^/g, ' ').replace(ODD_SPACE_RUN, ' ')
+
+/**
+ * The result line: the 60 values in CSV_COLUMNS order joined with "^", no header, no prefix. A self-guided
+ * participant pastes it into their chat with the facilitator ("Copy my results"); the results page has the same line
+ * ("Copy result line"). The team sheet's "Paste here" tab takes it in column A (its column C shows the field count,
+ * which must be 60), and its "Results" tab splits it with =SPLIT(line, "^", FALSE, FALSE).
+ */
+export const resultLine = (values: readonly string[]) => values.map(resultCell).join(RESULT_SEPARATOR)
+
+/** Saves `parts` as a file named `filename`. */
+function saveFile(filename: string, parts: BlobPart[], type: string) {
+  const url = URL.createObjectURL(new Blob(parts, { type }))
   const a = document.createElement('a')
   a.href = url
   a.download = filename
@@ -165,3 +195,9 @@ export function downloadCsv(filename: string, text: string) {
   a.remove()
   window.setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
+
+/** Saves `text` as a .csv file (with a BOM so Excel reads accents like "Peña" right). */
+export const downloadCsv = (filename: string, text: string) => saveFile(filename, ['﻿', text], 'text/csv;charset=utf-8')
+
+/** Saves `text` as a plain UTF-8 .txt file, with no BOM: pasted from it, the result line starts with the ID itself. */
+export const downloadText = (filename: string, text: string) => saveFile(filename, [text], 'text/plain;charset=utf-8')

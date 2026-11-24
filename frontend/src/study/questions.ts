@@ -1,7 +1,7 @@
 // Wording of the study's questions (plan sections 4 and 5). Neutral on purpose: no option or label favors either
 // interface, and both are named the same way everywhere ("the discussion board", "StackUp"). Every question can be
-// left unanswered, and each choice question also offers DECLINE_LABEL (the consent form: "You can decline to answer
-// any question").
+// left unanswered (Next warns once, blankWarning), and each choice question also offers DECLINE_LABEL (the consent
+// form: "You can decline to answer any question").
 import type { FindMethod, ProjectCount, Ui } from './store'
 
 /** The extra option on every choice question and Likert item (saved as DECLINED, exported as an empty cell). */
@@ -22,8 +22,38 @@ export const HOW_TO_CHOOSE: Record<Ui, string> = {
 export const SKIP_TEXT =
   'For the facilitator, only if something breaks. The task is saved with no choice. Write "something broke" and what happened in your notes.'
 
+/** In the "Choose {name}?" confirm, on the board and in StackUp (Invite), in both modes. */
+export const CHOOSE_TEXT = "This ends the task, and you can't change it later."
+
+/**
+ * The team members who send the self-guided study ("Who sent you this study?" on /study/self). The initials go in the
+ * facilitator column; the name and email show on the debrief and send pages only.
+ */
+export const STUDY_TEAM = [
+  { initials: 'DB', name: 'Dale Bittner', email: 'dale.bittner@ufl.edu' },
+  { initials: 'LM', name: 'Luka Mladjenovic', email: 'l.mladjenovic@ufl.edu' },
+  { initials: 'MD', name: 'Minghao Dai', email: 'minghaodai@ufl.edu' },
+  { initials: 'DD', name: 'Dimitri Decious', email: 'ddecious@ufl.edu' },
+  { initials: 'DR', name: 'Diego Rodriguez', email: 'drodriguez18@ufl.edu' },
+] as const
+export type TeamMember = (typeof STUDY_TEAM)[number]
+
+export const teamMember = (initials: string): TeamMember | undefined => STUDY_TEAM.find((m) => m.initials === initials)
+
+/** On each task card, under "Press Start when you're ready." (the limit and nudge are in store.ts and hooks.ts). */
+export const TASK_TIME = 'You have up to 7 minutes. Most people need less. A reminder appears at 6 minutes.'
+
 /** The participant's screen when the 7-minute limit ends a task. */
-export const TIME_UP = { title: "Time's up for this task.", text: 'Next, a few questions about it.' }
+export const TIME_UP = { title: "Time's up for this task.", text: "That's completely fine. Next, a few questions about it." }
+
+/** Shown once, next to Next, when a page of questions has unanswered ones; pressing Next again moves on. */
+export const blankWarning = (n: number) =>
+  n === 1
+    ? 'You left 1 question blank. Answer it, or press Next again to skip it.'
+    : `You left ${n} questions blank. Answer them, or press Next again to skip them.`
+
+/** The tag on each unanswered question while blankWarning shows (StudyPages.tsx, parts.tsx). */
+export const NOT_ANSWERED = 'Not answered'
 
 export const YEARS = ['Freshman', 'Sophomore', 'Junior', 'Senior', 'Graduate student', 'Other'] as const
 

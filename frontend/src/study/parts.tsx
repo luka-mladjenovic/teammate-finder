@@ -1,10 +1,10 @@
 // Components shared by the study pages, the board task and the study bar in the app: the task card, Likert radio
-// groups and the one-step confirm dialog. Their hooks are in hooks.ts.
+// groups, the "Not answered" tag and the one-step confirm dialog. Their hooks are in hooks.ts.
 import '../styles/study.css'
 // .check (the "Prefer not to answer" radio), as Field.tsx loads it.
 import '../styles/setup.css'
 import { useEffect, useId, useRef, type ReactNode } from 'react'
-import { DECLINE_LABEL, HOW_TO_CHOOSE } from './questions'
+import { DECLINE_LABEL, HOW_TO_CHOOSE, NOT_ANSWERED } from './questions'
 import type { StudyScenario } from './scenarios'
 import { DECLINED, type Declined, type Ui } from './store'
 
@@ -44,18 +44,36 @@ interface LikertProps {
   /** A number, DECLINED, or null / undefined while unanswered. */
   value?: number | Declined | null
   onChange: (v: number | Declined) => void
+  /** Still unanswered while the blank-questions warning shows: marked, and the legend says so (NotAnswered). */
+  missing?: boolean
+}
+
+/**
+ * The "Not answered" tag at the end of a question's legend, while the blank-questions warning shows: part of the
+ * group's name, so a screen reader says it on entering the group. Its fieldset gets .is-missing (the left border).
+ */
+export function NotAnswered() {
+  return (
+    <>
+      {' '}
+      <span className="study-missing-tag">{NOT_ANSWERED}</span>
+    </>
+  )
 }
 
 /**
  * A Likert item as a native radio group: arrow keys move between the numbers and, last, "Prefer not to answer".
  * Answering is never required.
  */
-export function Likert({ id, label, points, low, high, value, onChange }: LikertProps) {
+export function Likert({ id, label, points, low, high, value, onChange, missing = false }: LikertProps) {
   // The wrapper carries the line between items (a fieldset's top border would run through its legend).
   return (
     <div className="likert-item">
-      <fieldset id={id} className="likert">
-        <legend className="likert-q">{label}</legend>
+      <fieldset id={id} className={missing ? 'likert is-missing' : 'likert'}>
+        <legend className="likert-q">
+          {label}
+          {missing && <NotAnswered />}
+        </legend>
         <div className="likert-opts" style={{ gridTemplateColumns: `repeat(${points}, minmax(0, 1fr))` }}>
           {Array.from({ length: points }, (_, k) => k + 1).map((n) => (
             <label key={n} className="likert-opt">

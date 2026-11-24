@@ -84,7 +84,8 @@ function taskCard(viewer: Student, teammates: Student[], team: Team, openRole: R
   return {
     title: 'Your task',
     lines: [
-      `You're on the ${team.project} (${team.course}) with ${mates}. Your team of ${team.size} still needs someone for the ${role} role.`,
+      // As StackUp's My team shows it: 2 of 4 members, and the open role the only one "Needed" under Team coverage.
+      `You and ${mates} are on the ${team.project} team (${team.course}). Teams have ${team.size} people, and yours still needs someone for the ${role} role.`,
       'Find the one student who best fits your team. They should:',
       `• be able to take the ${role} role`,
       `• be free at least ${MIN_SHARED_HOURS} hours a week when you and ${mates} are both free: ${blocksText(commonSlots([viewer, ...teammates]))}`,

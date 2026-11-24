@@ -1,61 +1,92 @@
 # Facilitator guide: running a study session
 
-How to run one participant through the Part 3 study (plan: [`plan.md`](plan.md)). You don't need to know the code. A session takes about 20 minutes, no longer than 25. Everything happens in one HTML file in your browser: no server, no account. No study data leave the browser; when the laptop is online, the page only downloads display fonts.
+How to run one participant through the Part 3 study (plan: [`plan.md`](plan.md)). You don't need to know the code.
 
-## 1. Before your first session
+The usual way is **self-guided**: you message the participant the consent form, one HTML file and the participant message below. They sign and send back the form, do the study alone on their own laptop or desktop (about 20 minutes, no longer than 25), and paste one line of results back into your chat. No Zoom, no meeting. If someone would rather do it with you, you can also run it **in person** on your laptop (section 3).
 
-1. **Get the file.** Download `demo/teammate-finder-demo.html` from the repo (branch `frontend`, "Download raw file"). Keep it in one place on your laptop; always open that same copy. Your laptop must have a login password (turn one on if it has none), and lock it whenever you step away.
-2. **Open it in Chrome** (Edge or Firefox also work) in a **normal window, not private/incognito**. Sessions are saved in this browser only, and a private window forgets them when it closes (the page can't tell it's private, so check). If the browser blocks storage completely, the setup page shows a yellow warning.
-3. **Go to the study.** Add `#/study` to the end of the address, e.g. `file:///Users/you/Downloads/teammate-finder-demo.html#/study`, and press Enter. You see "Study setup".
-4. **Try it once yourself** with the ID `TEST1` to see every screen and the results page. Then delete it from the list on the setup page (Delete next to View). Test rows never go into the team sheet.
-5. **Screen:** browser window **maximized and at least 1000 px wide**, browser zoom at 100 %, notifications off, other tabs closed. At that width the task card stays next to the task in both tools. If the window is narrower, the setup page shows a yellow warning; if it still shows when the window is maximized (for example with 150 % display scaling), lower the display scaling or use another laptop.
+Everything runs in that one file in the browser: no server, no account. No study data leave the browser until the participant copies the result line and sends it to you; when online, the page only downloads display fonts.
 
-Use the same laptop and browser for all your sessions, and don't clear the browser's site data until your rows are in the team sheet.
+## 1. Self-guided session (the usual way)
 
-## 2. Participant IDs and sequences
+### Before your first participant
 
-- Take the **next free ID from the team sheet** (P01, P02, …) and write your initials next to it before you start, so no ID is used twice.
-- Pilot sessions use `PILOT1`, `PILOT2`, … and are not counted. Any ID must end in a number.
-- The **sequence** (which interface and scenario come first) is filled in from the ID: P01 → 1, P02 → 2, P03 → 3, P04 → 4, P05 → 1, …
+- **Get the two files** from the team's shared Drive folder: `StackUp_Study.html` (the study) and `StackUp_Consent_Form.pdf` (the consent form). The same files are in the repo (branch `frontend`): `demo/StackUp_Study.html` and `docs/evaluation/irb/StackUp_Informed_Consent.pdf`.
+- **Try it once yourself.** Open `StackUp_Study.html` in Chrome: it starts on "StackUp study". Use the ID `TEST1`, go through to "Send your results", press **Copy my results** and look at the line. Test lines never go into the team sheet. Then press **Done: remove my answers from this browser** and confirm.
 
-| Sequence | Task 1 | Task 2 |
-|---|---|---|
-| 1 | Discussion board, scenario S1 | StackUp, scenario S2 |
-| 2 | StackUp, S1 | Discussion board, S2 |
-| 3 | Discussion board, S2 | StackUp, S1 |
-| 4 | StackUp, S2 | Discussion board, S1 |
+### Each participant
 
-- **Each sequence must end with the same number of complete sessions.** Before you start, check the team sheet: use the sequence with the fewest complete sessions (the lowest number on a tie). As long as no session was discarded, withdrawn or excluded, that is the ID's own sequence and you change nothing. If a session was lost, set the sequence by hand on the setup page and write it next to the ID in the sheet.
+1. **Find someone.** They must be 18 or older, a UF student, have done at least one group project for a class, and not be on our team. Send the recruitment message one to one (plan section 1) and continue only if they say yes.
+2. **Give them an ID.** Use one of your IDs in the **IDs** tab of the team sheet (P01, P02, …); if you have none left, take the next free one and put your name next to it. Set its Status to "sent". Never give an ID twice. The ID sets the sequence (P01 → 1, P02 → 2, P03 → 3, P04 → 4, P05 → 1, …), so there is nothing else to set. Pilots use `PILOT1`, `PILOT2`, … and are not counted.
+3. **Send** the consent form PDF, `StackUp_Study.html` and the participant message below, with their ID in place of `P__` (Discord, text or email).
+4. **When the signed form arrives:** check that it is signed and dated. Sign it yourself as the person obtaining consent (Mac: open it in Preview → Markup → Sign; Windows: Adobe Acrobat Reader → Fill & Sign), add your name and the date, and send them a copy. Save it in the team's **Signed forms** folder (shared only with the five team members' Google accounts). Never write the participant ID on the form. Then delete the messages that carried it (below).
+5. **During the study** you do nothing. If they ask you something about a task, reply only "Do what you would normally do." For technical problems, see section 2.
+6. **When the result line arrives:**
+   - Use it only if you have their signed form. If the form never came, don't paste the line; ask for the form, and if it doesn't come, delete the line and mark the ID "withdrawn".
+   - **Copy it exactly.** On Discord, open the message's menu (hover → ⋯, or right-click) and choose **Copy Text**; don't select the text with the mouse, which can lose characters Discord shows as formatting. If it came as a file (`message.txt`, which Discord makes from a long paste, or the .txt from **Download my results**), open the file and copy all of it. In email or text, copy the whole line.
+   - In the team sheet, tab **Paste here**, click the next empty cell in **column A** and paste (⌘V / Ctrl+V), then type your initials in column B. Column C (**Fields**) must show **60**. If it shows another number, the line was cut or changed: clear the cell and ask them for the .txt from **Download my results**. The **Results** tab splits each line into the 60 columns by itself; check that the row starts with their ID.
+   - Look at the free-text columns in **Results** (`major`, `find_methods`, `preference_reason`, `comments`). If one contains a person's name, edit the name out of the line in the **Paste here** cell (then check Fields again). Don't type in the Results tab: it is all formulas.
+   - Reply "Got it, thank you! If you downloaded the results file, you can delete it now." and delete the messages that carry their ID or answers (their result line and your participant message), and any copy of the .txt you downloaded (Downloads folder, then the trash).
 
-## 3. Running the session
+**Deleting messages.** Email: delete the received and sent mail, then empty the trash. Text: delete the messages on your phone. Discord doesn't let you delete someone else's DMs: delete yours and ask them to delete theirs ("Got it, thanks! You can delete your message now.").
 
-1. **Eligibility, welcome and consent.** Ask the eligibility question out loud (section 4), read the welcome script, give the consent form, answer questions, wait until it is signed and dated. Then sign it yourself as the person obtaining consent, and give the participant an unsigned copy to keep (the form says they received one). Never write the participant ID on the form. Signed paper forms are kept in a locked drawer or cabinet, or scanned into the team's signed-forms folder (shared only with the five team members' Google accounts) and the paper shredded.
-2. **Setup (you):** Participant ID, check the sequence, tick **"Participant confirmed: 18 or older, a UF student, and has done at least one course group project."** (only after a yes to all three), tick "consent form signed", your initials, your email (optional: it is shown only on the debrief page, so the participant can copy it, and is never in the results), in person or remote, and whether they have taken CEN4721 or are taking it now (ask them; "Prefer not to answer" is fine). Press **Start session**. The session can't start without both ticks.
-3. **Hand over the computer.** From here the participant uses the page:
-   - *About you*: year, major, number of group projects, how they find teammates.
-   - *Task 1 card*: they read it and press **Start**. The clock starts here.
-   - *Task 1*: on the discussion board they press **Choose** on a post; in StackUp they press **Invite** (on a card, a profile or the comparison). Both ask "Choose {name}?" once; the clock stops at **Choose**. Nothing is really invited.
-   - *Questions*: confidence (only after a choice), how easy the task was, and 10 statements about that interface.
-   - *Task 2* and its questions, the same way.
-   - *Last questions*: which one they would rather use and why, anything else.
-4. **"Thank you!" page:** the participant hands the computer back. Type a few notes now if there is anything unusual (no names) and press **Next: debrief**. You can add to them after the participant has left (**Back to notes** on the debrief page).
-5. **Debrief page:** turn the screen to the participant (over Zoom it is already shared) and read the debrief (section 4) with them. The page shows their participant number in large type, the date and time of the session, and your email. Give them the card. If they would rather not have their answers used, press **Delete this session now** and confirm (section 8).
-6. **After the participant has left:** add to your notes if needed, press **Save session**, and on the results page copy the row into the team sheet (section 7). Don't save while the participant is still there.
+### The participant message
 
-**Every question can be skipped.** The consent form says "You can decline to answer any question". Each choice question and each rating has a **Prefer not to answer** option, the text boxes are optional, and **Next** always works. A skipped or declined answer is an empty cell in the results. That's fine: don't ask them to fill anything in.
+Copy it as written and replace `P__` with their ID:
 
-**The task card is on screen the whole time in both tools.** On the discussion board it is on the right of the posts. In StackUp a grey bar sits at the top ("Task 2 of 2" and a small **Skip (facilitator)**) and the task card is docked on the right of the app. (In a window under 1000 px the card is at the top instead: above the posts on the board, under the bar in StackUp with Hide task / Show task. Avoid this; see section 1.)
+> Thanks for helping with our study! It takes about 20 minutes on a laptop or desktop (not a phone). Please do it by Sat 11/28.
+>
+> 1. Read the attached consent form. If you agree, sign it and send it back to me.
+> 2. On your laptop or desktop, download StackUp_Study.html and double-click it. It opens in your web browser (Chrome works best); there's nothing to install. If you got this on your phone, open this chat on your laptop first.
+> 3. Type your participant ID: P__, choose my name, and follow the page. Please do it alone and in one go. If you close it by accident, open the file again in the same browser and you'll continue where you left off.
+> 4. At the end, press "Copy my results", paste it here and send it. (Or press "Download my results" and send me the file.)
 
-**Time limit (7 minutes), automatic:** after 6 minutes a banner says "One minute left. Please make your best choice now." It doesn't stop anything; they can still choose. If there is still no choice 7 minutes after Start, the page ends the task for you (the consent form says "the researcher ends the task"): it shows "Time's up for this task." and then the questions, as after any task but without the confidence question (there was no choice). It is saved with no choice as timed out (`timed_out` 1, time 420.0). You don't need to watch the clock or press anything, and a normal timeout needs no note. A reload doesn't reset the clock; if the 7 minutes ran out during a reload or while the browser was closed, the task ends as timed out at once, and you write "something broke" in the notes (section 8).
+If they ask how to sign: the consent form explains it at the end (print, sign and send a photo, or sign the PDF in Preview or Adobe Acrobat Reader).
 
-**Skip (facilitator)** is for you only, and only when something breaks (the laptop, the study page or the Zoom connection): the consent form lets the researchers skip a task only for a technical problem. The task is saved with no choice (`skipped` 1). Write "something broke" and what happened in the notes; that participant is left out of the results and their sequence is run again (plan section 5). Never press Skip because the participant wants to give up: use the line in section 4.
+### Withdrawals
 
-## 4. What to say (read it as written)
+- **Before sending:** a participant who stops, or presses **Delete my answers** at the end, sends nothing, and nothing reaches you (the page suggests they let you know, without giving a reason). If they tell you, or no line arrives after one friendly reminder after 11/28 (never more), mark the ID "withdrawn" in the IDs tab and move their signed form into a "Withdrawn" subfolder: it is left out of Appendix C.
+- **After sending, until November 30, 2026:** they send you their participant ID, or the date and time of their session. Find their row in **Results** (by ID, or by date, time and your initials), clear its cells in columns A and B of **Paste here** (select them, press Delete), mark the ID "withdrawn", move their signed form into "Withdrawn", reply that it's done, and delete the messages. After November 30 their answers can no longer be taken out (the consent form says so).
 
-**Eligibility (before the consent form), out loud:**
+### Reruns
+
+Each sequence must end with the same number of complete sessions. A session that is withdrawn, lost (they pressed **Done** before sending, or the line never came) or excluded ("something broke") is rerun with a **new** ID, P13, P14, …, chosen so its number gives the missing sequence (P13 → 1, P14 → 2, P15 → 3, P16 → 4, P17 → 1, …). Put your initials next to it in the IDs tab first. Never reuse an ID.
+
+## 2. If something goes wrong (self-guided)
+
+| What happened | What to do |
+|---|---|
+| The file doesn't arrive (some email filters block .html files) | Send it on Discord or by text, or zip it first. |
+| They only have a phone, or opened it on one | The study needs a laptop or desktop. Ask them to open the chat there, or offer an in-person session (section 3). |
+| It opens in Safari, or shows code | Right-click the file → Open With → Google Chrome. Edge and Firefox also work. |
+| "Please make the browser window wider, or use a laptop or desktop computer." | Maximize the window and set the zoom to 100 %, or use another computer. |
+| A yellow warning that the browser isn't saving | Use a normal (not private) Chrome window, or finish without reloading or closing the page. |
+| The page stopped working, or they closed it during a task | Opening the file again in the same browser continues where they left off, but a running task's clock kept going. Let them finish and send the line. If a task was running, mark "something broke" next to the ID in the IDs tab: that session is left out and rerun ("We will not use an incomplete session", consent form). |
+| Fields in **Paste here** isn't 60 | Clear the cell and ask for the .txt from **Download my results** (section 1, step 6). |
+| They pressed **Done** before sending, or lost the line | Nothing can be recovered. Mark the ID "lost" and rerun. |
+| A line arrives but no signed form | Don't paste it (section 1, step 6). |
+| They want to stop, or don't reply | Fine. Never push. See Withdrawals. |
+| Anything else | Tell the team on Discord. |
+
+## 3. In person (optional)
+
+For a participant who would rather do it with you. Use your own laptop (it must have a login password; lock it when you step away) in a normal, not private, Chrome window: maximized, at least 1000 px wide, zoom 100 %, notifications off, other tabs closed. Use the same laptop and browser for all your in-person sessions, and don't clear the browser's site data until your lines are in the team sheet.
+
+1. **Open the setup page:** open `StackUp_Study.html`, change the end of the address to `#/study` and press Enter. You see "Study setup".
+2. **Eligibility, welcome and consent:** ask the eligibility question, read the welcome (scripts below), give the paper consent form and answer questions. They sign and date it, you sign as the person obtaining consent, and they keep an unsigned copy. Never write the ID on it. Keep signed paper forms in a locked drawer, or scan them into the Signed forms folder and shred the paper.
+3. **Setup:** participant ID (as in section 1, step 2; the sequence fills in from it), tick **"Participant confirmed: 18 or older, a UF student, and has done at least one course group project."** only after a yes to all three, tick **"The participant has signed the consent form"**, your initials, your email (optional, shown only on the debrief page), and whether they have taken CEN4721 or are taking it now (ask them; "Prefer not to answer" is fine). The session is **In person** (the only option, already selected). Press **Start session**.
+4. **Hand over the computer.** Don't help, don't react to choices or time, and don't touch the computer during a task. The page shows the 6-minute reminder and ends the task at 7 minutes by itself. **Skip (facilitator)** is only for when the laptop or the page breaks: write "something broke" in the notes, and that session is rerun. Never press it because they want to give up (use the line below).
+5. **"Thank you!" page:** they hand it back. Type short notes if anything was unusual (no names) and press **Next: debrief**.
+6. **Debrief:** turn the screen to them and read it together (script below). If they would rather not have their answers used: **Delete this session now** → confirm, and press **Back to setup** only after they have left. Give them a small card with only their participant number and your email. Never email the number.
+7. **After they have left:** press **Save session**, then on the results page press **Copy result line** and paste it into the next empty row of column A in the team sheet's **Paste here** tab, with your initials in column B; check that Fields shows 60 and do the name check as in section 1, step 6. Don't download CSV files: the team sheet is the only copy. Never show the participant the results or setup page (setup lists other sessions).
+
+**Problems in person.** The page looks wrong: reload (⌘R / Ctrl+R); the session comes back at the same step and a running task keeps its clock; if a task was running, write "something broke" in the notes. The browser closed: open the file at `#/study` and press the button with their ID, **Resume P03** for example. They want to stop: turn the screen away, go to `#/study`, press **Discard session**, and mark the ID "withdrawn". A wrong click on Choose or Invite stands: write it in the notes. **Withdrawal later:** setup page → **Saved sessions on this computer** → **Delete** next to their ID (or the row with their date and time), then continue as in section 1, Withdrawals.
+
+### What to say (read it as written)
+
+**Eligibility (before the consent form):**
 > Before we start: are you 18 or older, a UF student, and have you done at least one group project for a class?
 
-Only a yes to all three counts; then tick the eligibility box at setup. If they say no to any part, thank them and stop; nothing is recorded. The study page doesn't ask this again (its group-project question starts at 1–2).
+Only a yes to all three counts. If they say no to any part, thank them and stop; nothing is recorded.
 
 **Welcome:**
 > Thanks for helping us. We're comparing two ways of finding teammates for a course project. We're testing the tools, not you, and there are no right or wrong answers. It takes about 20 minutes, everything you'll see is made up, and you can stop at any time. Saying no, or stopping at any point, is completely fine. It won't affect anything between us or anyone's grade. Please read this consent form. Do you have any questions before you sign?
@@ -69,77 +100,24 @@ Only a yes to all three counts; then tick the eligibility box at setup. If they 
 **If they say they want to give up on a task:**
 > That's fine. You can choose the student you think fits best, or wait, and the task ends at 7 minutes. If you'd rather stop the study, that's fine too.
 
-Then don't touch anything. If they want to stop the study, see "The participant wants to stop" in section 8. A task they leave to run out is saved as timed out, like any other.
-
 **If they ask what a question means:** read it out again, without explaining it in other words.
 
 **If they ask whether they have to answer a question:**
 > No, you can skip any question, or choose "Prefer not to answer".
 
-**At the end (debrief), on the debrief page, read with the participant:**
-> Thank you, that's everything. There's one thing we didn't tell you earlier: StackUp was designed by our team, the CEN4721 students running this study. We didn't say so before so that it wouldn't affect your answers. The discussion board copies the Canvas-style threads many students use to find teammates today. Your answers help us see whether StackUp actually helps. If you'd rather we not use your answers now that you know this, tell me and I'll delete them right now. This is your participant number, and here is my email. If you change your mind later, email me the number by November 30 and I'll delete your answers; if you lose it, send me the date and time of your session instead. Please don't tell anyone who might take part about the tasks or which student you chose until after December 2. Do you have any questions?
+**Debrief (on the debrief page, read with the participant):**
+> Thank you, that's everything. There's one thing we didn't tell you earlier: StackUp was designed by our team, the CEN4721 students running this study. We didn't say so before so that it wouldn't affect your answers. The discussion board copies the Canvas-style threads many students use to find teammates today. All the students in both tasks were made up. None of them are real people. Your answers help us see whether StackUp actually helps. If you'd rather we not use your answers now that you know this, tell me and I'll delete them right now. This is your participant number, and here is my email. If you change your mind later, email me the number by November 30 and I'll delete your answers; if you lose it, send me the date and time of your session instead. Please don't tell anyone who might take part about the tasks or which student you chose until after December 2. Do you have any questions?
 
-If they want their answers deleted: **Delete this session now** → **Delete session**. Nothing is saved, and the page shows "Session deleted" with nothing from other sessions on it. Press **Back to setup** only after the participant has left (over Zoom, after you stop sharing): setup lists the other sessions. Note the ID as "withdrawn" in the team sheet, and set their signed form aside: it is left out of Appendix C.
+## 4. The team sheet
 
-The card: a small piece of paper with only the participant number (e.g. P07) and your email, copied from the debrief page. Over Zoom, the debrief page is on the shared screen: read both out and let them write them down. Never email the number.
+A **Google Sheet shared only with the five team members' Google accounts** (no "anyone with the link"); the Signed forms folder is shared the same way. It has three tabs:
 
-## 5. What not to do
+- **Paste here** (rows 2–60): column A, "Result line: paste one per row, starting in A2 (the Results tab splits it into columns)", takes one result line per row; column B, "Pasted by (initials)", is typed by hand by whoever pastes the line; column C, "Fields (must be 60)", counts the line's values with `=IF(A2="","",LEN(A2)-LEN(SUBSTITUTE(A2,"^",""))+1)`.
+- **Results**: row 1 holds the 60 CSV column names (plan section 8), and each of A2…A60 is `=IF('Paste here'!A2="","",SPLIT('Paste here'!A2,"^",FALSE,FALSE))`, which splits the line in the same row of **Paste here** at every `^` into those 60 columns. Never type in it.
+- **IDs** tab: one row per ID (P01–P16, PILOT1–2) with its order (sequence), the member who uses it, a Status dropdown (sent, form in, results in, withdrawn, lost, something broke) and notes. Never write a participant's name there.
 
-- Don't help during a task: no pointing, no hints, no "try the filters", no "scroll down". Use the one sentence above.
-- Don't say which tool is ours, or that we hope one wins, before the debrief.
-- Don't react to choices ("good pick", "hmm") or to the time they take.
-- Don't touch the computer during a task, except Skip (facilitator) when something breaks. Not when the participant wants to give up (section 4). The 7-minute limit needs nothing from you.
-- Don't push for an answer. A blank or "Prefer not to answer" is fine.
-- Don't ask them to think aloud during the tasks (it changes the times). Questions and comments go after the tasks.
-- Don't rerun a task after a choice was made, even a wrong click. Write it in the notes instead.
-- Don't show the participant the results page or the setup page (setup lists other sessions), and don't save the session while they are still there (the debrief page, or "Session deleted" after a delete, is the last one they see).
+More about the lines and columns:
 
-## 6. Remote sessions (Zoom)
-
-1. Open the file on **your** computer (as in section 1) before the call, at the setup page.
-2. Fill in the setup yourself, then **share your browser window** (Share Screen → the browser window, not the whole desktop).
-3. **Give remote control:** in the sharing toolbar at the top of your screen, click **Remote Control** (in some versions under **More**) → choose the participant. Ask them to click once on the page to take control. If the option is missing, turn it on first on the Zoom website: Settings → In Meeting (Basic) → *Remote control*. On a Mac, Zoom also needs System Settings → Privacy & Security → Accessibility → zoom.us switched on, or their clicks won't arrive. Test all of this with a teammate before your first remote session.
-4. The participant clicks and types everything, as in person. Don't take control back during a task.
-5. Lag: if their clicks are slow to arrive, tell them it's the connection and write it in the notes.
-6. If remote control fails completely, you may click for them, but only exactly what they say, and write "facilitator clicked" in the notes (their time won't be comparable).
-7. **After the last questions** ("Thank you!" page), take control back: stop remote control in the sharing toolbar (**Remote Control** → **Stop Remote Control**), but keep sharing for the debrief. Stop sharing before you press **Save session** or **Back to setup**: the results and setup pages are not for the participant.
-8. Consent remotely: send the consent form before the call and get it back signed before you start. Sign it yourself as the person obtaining consent and email the participant a copy. Once it is saved with the other signed forms, delete the emails that carried it (received and sent, then the trash). Don't record the meeting.
-
-## 7. Putting the results in the team sheet
-
-On the results page (after the participant has left):
-
-1. Press **Copy row for the sheet**.
-2. In the team sheet, click the first empty cell in **column A** of the results tab and paste (⌘V / Ctrl+V). The values fill the columns. If a free-text answer or your notes contain a name, delete it in the sheet.
-3. A brand-new sheet needs the header once: **Copy header for the sheet**, paste into A1. (The header changed on 11/15 when `skipped`, `timed_out` and `sus_answered` were added; a sheet started before then needs the new header.)
-
-The team sheet is a **Google Sheet shared only with the five team members' Google accounts**: no "anyone with the link" sharing and no other accounts. The backup folder (below) is shared the same way.
-
-Other options: **Copy CSV row** (the same values separated by commas) and **Download CSV** (this session as a file). In Google Sheets a CSV file goes in with File → Import → Upload → "Append to current sheet". At the end of each day also press **Download all (CSV)** on the setup page and put the file in the team backup folder. Only use **Clear all** after the team has checked that every row is in the sheet.
-
-What the columns mean: `t1_*` is task 1 and `t2_*` task 2. `choice` is the chosen student (empty when skipped or timed out), `best_fit` 1/0 (empty when skipped or timed out), `unmet` how many of the four needs the choice misses (0–4, empty with no choice), `time_s` seconds from Start to Choose (420.0 when timed out, empty when skipped), `nudged` 1 if the 6-minute banner showed, `skipped` 1 if you pressed Skip (facilitator), `timed_out` 1 if the 7-minute limit ended the task, `confidence` and `seq` 1–7 (`confidence` is empty when skipped or timed out: it is asked only after a choice), `sus` the SUS score 0–100 (only when all 10 items are answered), `sus_answered` how many of the 10 were answered, `sus1`…`sus10` the answers 1–5. Any question the participant skipped or answered "Prefer not to answer" is an empty cell (`took_cen4721` too).
-
-**After the report is handed in (12/2):** press **Clear all** on your study page, and delete your local CSV files (Downloads, then empty the trash). **[Name one member]** deletes the team sheet and the backup folder by 12/31/2026.
-
-## 8. If something goes wrong
-
-| What happened | What to do |
-|---|---|
-| The page looks wrong or stops responding | Reload (⌘R / Ctrl+R). The session comes back at the same step; a running task keeps its clock (if its 7 minutes ran out meanwhile, it ends as timed out). If a task was running, write "something broke" and what happened in the notes, even if the page then shows "Time's up for this task." (plan section 5). |
-| The browser or laptop closed | Open the same file in the same browser, go to `#/study`, press **Resume**. If a task was running, write "something broke" in the notes, even if the page shows "Time's up for this task.": the time ran out because of the problem, not the participant (plan section 5). |
-| The participant pressed the browser's Back button | Nothing to do. During a session the page always comes back to the current study step (during a StackUp task, to the task). If it shows the setup page instead, press **Resume**; while a session is in progress, setup hides the saved sessions. |
-| The participant wandered to another StackUp page | That's allowed. Invite works on every page. |
-| A wrong click on Choose / Invite | The choice stands. Write it in the notes. |
-| No choice after 7 minutes | Nothing to do. The page ends the task ("Time's up for this task.") and the questions follow, without the confidence question. |
-| The participant says they want to give up on a task | Read the line in section 4 ("That's fine. You can choose …"). Don't press Skip. If they want to stop the study, see the next row. |
-| The participant skips questions or chooses "Prefer not to answer" | Fine. Don't ask them to answer; those cells stay empty. |
-| The participant wants to stop | Stop. Turn the screen away from them (over Zoom, stop sharing first): once you discard, setup lists the other sessions. Go to `#/study` (type it in the address bar) and press **Discard session**: their answers are deleted. Note the ID as "withdrawn" in the team sheet, and set their signed form aside: it is left out of Appendix C. The next participant gets that sequence (section 2). |
-| At the debrief, the participant doesn't want their answers used | On the debrief page press **Delete this session now** → **Delete session**. Nothing is saved, and the page shows "Session deleted"; press **Back to setup** only after they have left. Note the ID as "withdrawn", and set their signed form aside: it is left out of Appendix C. The next participant gets that sequence. If you already saved it: setup page → **Delete** next to their ID (with the screen turned away). |
-| A participant withdraws after the session (emails their participant number by 11/30) | On the laptop and browser you ran it on, open the demo file at `#/study`. Under **Saved sessions on this computer**, find the row whose **ID** is their number (if they lost it, the row whose **Date** matches the date and time they give), press **Delete** next to it and confirm. Then delete their row from the team sheet and from every CSV backup (team folder and your Downloads), note the ID as "withdrawn", tell the team to leave their signed form out of Appendix C, reply that it's done, and delete the email thread (it links their name to the number). If you already pressed Clear all, the sheet and the backups are all that's left. |
-| Wrong sequence or wrong ID, before Task 1 started | Setup page (`#/study`) → Discard session, then start again with the right values. |
-| Yellow "narrower than 1000 px" warning on the setup page | Maximize the window and set the zoom to 100 % (section 1). |
-| Yellow "isn't saving" warning on the setup page | The browser blocks storage for this file. Use a normal Chrome window with site data allowed before you start. |
-| "already has a saved session" under the ID | That ID was run on this laptop before. Check the team sheet and pick a new ID unless you're redoing it on purpose. |
-| Anything else | Finish if you can, write it in the notes, and tell the team on Discord. |
-
-While a session is in progress, the page keeps sending other app pages back to the study, the setup page hides the saved sessions (and Download all / Clear all), and a saved session's results page leads back to the session. To use the normal demo or the saved list again, finish or discard the session first.
+- A result line is the 60 values in the order of the CSV columns (plan section 8), joined with `^`. Inside a value, `^` becomes a space, and tabs or line breaks become one space, so a line is always one row. (Not `|`: Discord turns `||` into spoiler markup.) Self-guided lines come from the participant's **Copy my results** (or the .txt from **Download my results**); in-person lines from **Copy result line** on the results page. Both go into **Paste here**.
+- **What the columns mean:** `mode` is `self` (self-guided) or `in_person` (`remote` appears only in sessions saved by an older version of the page). `facilitator` is the initials of the team member who sent the study (self-guided) or ran it (in person). `t1_*` is task 1 and `t2_*` task 2. `choice` is the chosen student (empty when skipped or timed out), `best_fit` 1/0 (empty when skipped or timed out), `unmet` how many of the four needs the choice misses (0–4, empty with no choice), `time_s` seconds from Start to Choose (420.0 when timed out, empty when skipped), `nudged` 1 if the 6-minute banner showed, `skipped` 1 if the facilitator pressed Skip (never in self-guided sessions), `timed_out` 1 if the 7-minute limit ended the task, `confidence` and `seq` 1–7 (`confidence` is empty when skipped or timed out: it is asked only after a choice), `sus` the SUS score 0–100 (only when all 10 items are answered), `sus_answered` how many of the 10 were answered, `sus1`…`sus10` the answers 1–5. `notes` is empty in self-guided sessions. Any question the participant skipped or answered "Prefer not to answer" is an empty cell (`took_cen4721` too).
+- **After the report is handed in (12/2):** if you ran in-person sessions, press **Clear all** on your study page. **[Name one member]** deletes the team sheet and the team's copies of the signed forms (the Signed forms folder; paper forms are shredded) by 12/31/2026.
