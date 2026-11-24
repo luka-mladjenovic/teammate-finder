@@ -29,7 +29,7 @@ Use the same laptop and browser for all your sessions, and don't clear the brows
 
 ## 3. Running the session
 
-1. **Eligibility, welcome and consent.** Ask the eligibility question out loud (section 4), read the welcome script, give the consent form, answer questions, wait until it is signed and dated. Then sign it yourself as the person obtaining consent, and give the participant an unsigned copy to keep (the form says they received one). Never write the participant ID on the form. Signed paper forms are kept in a locked drawer or cabinet, or scanned into the team's signed-forms folder (shared only with the five members' UF accounts) and the paper shredded.
+1. **Eligibility, welcome and consent.** Ask the eligibility question out loud (section 4), read the welcome script, give the consent form, answer questions, wait until it is signed and dated. Then sign it yourself as the person obtaining consent, and give the participant an unsigned copy to keep (the form says they received one). Never write the participant ID on the form. Signed paper forms are kept in a locked drawer or cabinet, or scanned into the team's signed-forms folder (shared only with the five team members' Google accounts) and the paper shredded.
 2. **Setup (you):** Participant ID, check the sequence, tick **"Participant confirmed: 18 or older, a UF student, and has done at least one course group project."** (only after a yes to all three), tick "consent form signed", your initials, your email (optional: it is shown only on the debrief page, so the participant can copy it, and is never in the results), in person or remote, and whether they have taken CEN4721 or are taking it now (ask them; "Prefer not to answer" is fine). Press **Start session**. The session can't start without both ticks.
 3. **Hand over the computer.** From here the participant uses the page:
    - *About you*: year, major, number of group projects, how they find teammates.
@@ -113,7 +113,7 @@ On the results page (after the participant has left):
 2. In the team sheet, click the first empty cell in **column A** of the results tab and paste (⌘V / Ctrl+V). The values fill the columns. If a free-text answer or your notes contain a name, delete it in the sheet.
 3. A brand-new sheet needs the header once: **Copy header for the sheet**, paste into A1. (The header changed on 11/15 when `skipped`, `timed_out` and `sus_answered` were added; a sheet started before then needs the new header.)
 
-The team sheet is a **Google Sheet shared only with the five team members' UF accounts**: no "anyone with the link" sharing and no other accounts. The backup folder (below) is shared the same way.
+The team sheet is a **Google Sheet shared only with the five team members' Google accounts**: no "anyone with the link" sharing and no other accounts. The backup folder (below) is shared the same way.
 
 Other options: **Copy CSV row** (the same values separated by commas) and **Download CSV** (this session as a file). In Google Sheets a CSV file goes in with File → Import → Upload → "Append to current sheet". At the end of each day also press **Download all (CSV)** on the setup page and put the file in the team backup folder. Only use **Clear all** after the team has checked that every row is in the sheet.
 
