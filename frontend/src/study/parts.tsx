@@ -8,17 +8,44 @@ import { DECLINE_LABEL, HOW_TO_CHOOSE, NOT_ANSWERED } from './questions'
 import type { StudyScenario } from './scenarios'
 import { DECLINED, type Declined, type Ui } from './store'
 
-/** The scenario's task card: short paragraphs, the four needs as a list, then how choosing works in this interface. */
+/** "Thu night (11 pm–1 am)": the times in brackets never wrap apart in the narrow side panel. */
+function keepTimeTogether(text: string): ReactNode {
+  const m = /^(.*?)(\([^()]*\))$/.exec(text)
+  return m ? <>{m[1]}<span className="study-nowrap">{m[2]}</span></> : text
+}
+
+/**
+ * The scenario's task card: short paragraphs, the four needs as a list (the shared free times as a sub-list), then how
+ * choosing works in this interface.
+ */
 export function TaskCardBody({ scenario, ui }: { scenario: StudyScenario; ui: Ui }) {
   const blocks: ReactNode[] = []
-  let bullets: string[] = []
+  let bullets: { text: string; subs: string[] }[] = []
   const flush = () => {
-    if (bullets.length) blocks.push(<ul key={blocks.length} className="study-needs">{bullets.map((b) => <li key={b}>{b}</li>)}</ul>)
+    if (bullets.length)
+      blocks.push(
+        <ul key={blocks.length} className="study-needs">
+          {bullets.map((b) => (
+            <li key={b.text}>
+              {b.text}
+              {b.subs.length > 0 && (
+                <ul className="study-needs-sub">
+                  {b.subs.map((t) => <li key={t}>{keepTimeTogether(t)}</li>)}
+                </ul>
+              )}
+            </li>
+          ))}
+        </ul>,
+      )
     bullets = []
   }
   for (const line of scenario.taskCard.lines) {
     if (line.startsWith('• ')) {
-      bullets.push(line.slice(2))
+      bullets.push({ text: line.slice(2), subs: [] })
+      continue
+    }
+    if (line.startsWith('◦ ') && bullets.length) {
+      bullets[bullets.length - 1].subs.push(line.slice(2))
       continue
     }
     flush()

@@ -40,6 +40,7 @@ export interface StudyScenario {
   bestFitId: string
   openRole: Role
   /** Shown in both conditions. Title plus short lines; states the four needs and the team's common free time. */
+  /** Lines starting "• " are the needs list; "◦ " lines are sub-bullets of the need above them. */
   taskCard: { title: string; lines: string[] }
   /** The baseline thread. posts are in display order; the best fit is at position 6 or 7 (0-based 5 or 6) of 13. */
   board: { threadTitle: string; intro: string; posts: BoardPost[] }
@@ -71,11 +72,9 @@ const REPLY_WITHIN: Record<ResponseTime, string> = {
   next_day: 'by the next day',
 }
 
-/** "Thu and Sun afternoon (12–5 pm); Tue, Wed and Thu late evening (8–11 pm); Thu night (11 pm–1 am)". */
-function blocksText(slots: readonly SlotKey[]): string {
-  return groupByBlock(slots)
-    .map((g) => `${joinWords(g.days.map((d) => DAY_LABEL[d]))} ${SLOT_LABEL[g.slot].toLowerCase()} (${SLOT_TIME[g.slot]})`)
-    .join('; ')
+/** ["Thu and Sun afternoon (12–5 pm)", "Tue, Wed and Thu late evening (8–11 pm)", "Thu night (11 pm–1 am)"]. */
+function blocksText(slots: readonly SlotKey[]): string[] {
+  return groupByBlock(slots).map((g) => `${joinWords(g.days.map((d) => DAY_LABEL[d]))} ${SLOT_LABEL[g.slot].toLowerCase()} (${SLOT_TIME[g.slot]})`)
 }
 
 function taskCard(viewer: Student, teammates: Student[], team: Team, openRole: Role): StudyScenario['taskCard'] {
@@ -88,7 +87,9 @@ function taskCard(viewer: Student, teammates: Student[], team: Team, openRole: R
       `You and ${mates} are on the ${team.project} team (${team.course}). Teams have ${team.size} people, and yours still needs someone for the ${role} role.`,
       'Find the one student who best fits your team. They should:',
       `• be able to take the ${role} role`,
-      `• be free at least ${MIN_SHARED_HOURS} hours a week when you and ${mates} are both free: ${blocksText(commonSlots([viewer, ...teammates]))}`,
+      `• be free at least ${MIN_SHARED_HOURS} hours a week when you and ${mates} are both free:`,
+      // One sub-bullet per block (pilot 1: one long line was hard to look back at while reading posts).
+      ...blocksText(commonSlots([viewer, ...teammates])).map((b) => `◦ ${b}`),
       `• ${GOAL_WANT[team.goal]}, like your team`,
       `• reply ${REPLY_WITHIN[viewer.responseTime]}, like you`,
       "When you've decided, choose them.",

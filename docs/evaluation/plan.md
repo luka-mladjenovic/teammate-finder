@@ -100,6 +100,7 @@ At least 2 pilot participants (IDs PILOT1, PILOT2, …; not counted in the resul
 
 | Pilot ID | Date | What we saw | What we changed | File |
 |---|---|---|---|---|
+| PILOT1 | 11/27 | Self-guided, done by a team member (Diego) from the participant message alone, consent form skipped. The result line came back through Discord intact (Fields 60 in the team sheet). Best fit picked in both tasks: board 374.6 s (past the 6-minute reminder), StackUp 93.2 s. About 25 minutes from the start page (08:57) to posting the line (09:22), breaks included. Only problem he reported: the shared free times were one long line on the task card, hard to look back at while reading the posts; he suggested sub-bullets. | Task card: the shared free times are now a sub-list under that need, one line per block, and each time range stays on one line. The card is the same in both conditions. | `StackUp_Study.html` of 11/27 |
 | | | | | |
 
 ## 7. Data and ethics
@@ -140,7 +141,10 @@ Runs on the offline demo build: the same fictional data for everyone, no server,
 > You and Taylor are on the Textbook Swap App team (CIS4301). Teams have 4 people, and yours still needs someone for the Frontend role.
 > Find the one student who best fits your team. They should:
 > - be able to take the Frontend role
-> - be free at least 6 hours a week when you and Taylor are both free: Thu and Sun afternoon (12–5 pm); Tue, Wed and Thu late evening (8–11 pm); Thu night (11 pm–1 am)
+> - be free at least 6 hours a week when you and Taylor are both free:
+>   - Thu and Sun afternoon (12–5 pm)
+>   - Tue, Wed and Thu late evening (8–11 pm)
+>   - Thu night (11 pm–1 am)
 > - want a strong grade, like your team
 > - reply within 1 hour, like you
 >
@@ -151,7 +155,10 @@ Runs on the offline demo build: the same fictional data for everyone, no server,
 > You and Amara are on the Lost and Found App team (CEN3031). Teams have 4 people, and yours still needs someone for the Backend role.
 > Find the one student who best fits your team. They should:
 > - be able to take the Backend role
-> - be free at least 6 hours a week when you and Amara are both free: Mon and Fri afternoon (12–5 pm); Mon, Tue and Thu late evening (8–11 pm); Tue night (11 pm–1 am)
+> - be free at least 6 hours a week when you and Amara are both free:
+>   - Mon and Fri afternoon (12–5 pm)
+>   - Mon, Tue and Thu late evening (8–11 pm)
+>   - Tue night (11 pm–1 am)
 > - want a strong grade, like your team
 > - reply within 1 hour, like you
 >
