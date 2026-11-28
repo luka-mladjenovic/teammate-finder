@@ -33,7 +33,7 @@ Everything runs in that one file in the browser: no server, no account. No study
 
 Copy it as written and replace `P__` with their ID:
 
-> Thanks for helping with our study! It takes about 20 minutes on a laptop or desktop (not a phone). Please do it by Sat 11/28.
+> Thanks for helping with our study! It takes about 20 minutes on a laptop or desktop (not a phone). Please do it by Sun 11/29.
 >
 > 1. Read the attached consent form. If you agree, sign it and send it back to me.
 > 2. On your laptop or desktop, download StackUp_Study.html and double-click it. It opens in your web browser (Chrome works best); there's nothing to install. If you got this on your phone, open this chat on your laptop first.
@@ -44,7 +44,7 @@ If they ask how to sign: the consent form explains it at the end (print, sign an
 
 ### Withdrawals
 
-- **Before sending:** a participant who stops, or presses **Delete my answers** at the end, sends nothing, and nothing reaches you (the page suggests they let you know, without giving a reason). If they tell you, or no line arrives after one friendly reminder after 11/28 (never more), mark the ID "withdrawn" in the IDs tab and move their signed form into a "Withdrawn" subfolder: it is left out of Appendix C.
+- **Before sending:** a participant who stops, or presses **Delete my answers** at the end, sends nothing, and nothing reaches you (the page suggests they let you know, without giving a reason). If they tell you, or no line arrives after one friendly reminder after 11/29 (never more), mark the ID "withdrawn" in the IDs tab and move their signed form into a "Withdrawn" subfolder: it is left out of Appendix C.
 - **After sending, until November 30, 2026:** they send you their participant ID, or the date and time of their session. Find their row in **Results** (by ID, or by date, time and your initials), clear its cells in columns A and B of **Paste here** (select them, press Delete), mark the ID "withdrawn", move their signed form into "Withdrawn", reply that it's done, and delete the messages. After November 30 their answers can no longer be taken out (the consent form says so).
 
 ### Reruns

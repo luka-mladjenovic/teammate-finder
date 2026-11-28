@@ -103,7 +103,7 @@ Design: **within subjects**. Every participant uses both interfaces, one per tas
 ## 7. Duration
 
 - **Per participant:** one session of about 20 minutes, **no longer than 25 minutes**, kept to that by the 7-minute task limit (section 6, step 4). There are no follow-up sessions.
-- **Study period:** pilot sessions, then data collection in November 2026, finishing before the Part 3 final deliverable is due (**Wed 12/2/2026**). Self-guided participants are asked to take part by Saturday 11/28/2026 (participant message, Appendix A). Participants can withdraw after their session until 11/30/2026 (section 14). Study data are deleted at the end of the Fall 2026 semester, no later than 12/31/2026, after final grades are posted **[team to confirm both dates]**.
+- **Study period:** pilot sessions, then data collection in November 2026, finishing before the Part 3 final deliverable is due (**Wed 12/2/2026**). Self-guided participants are asked to take part by Sunday 11/29/2026 (participant message, Appendix A). Participants can withdraw after their session until 11/30/2026 (section 14). Study data are deleted at the end of the Fall 2026 semester, no later than 12/31/2026, after final grades are posted **[team to confirm both dates]**.
 
 ## 8. Location / setting
 
@@ -259,7 +259,7 @@ Non-financial: the student researchers designed and built StackUp, and this eval
 
 **Participant message.** Sent once someone agrees, with the consent form (PDF) and `StackUp_Study.html` attached and their participant ID in place of "P__" (same as `facilitator-guide.md` section 1):
 
-> Thanks for helping with our study! It takes about 20 minutes on a laptop or desktop (not a phone). Please do it by Sat 11/28.
+> Thanks for helping with our study! It takes about 20 minutes on a laptop or desktop (not a phone). Please do it by Sun 11/29.
 >
 > 1. Read the attached consent form. If you agree, sign it and send it back to me.
 > 2. On your laptop or desktop, download StackUp_Study.html and double-click it. It opens in your web browser (Chrome works best); there's nothing to install. If you got this on your phone, open this chat on your laptop first.
